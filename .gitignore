@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+backend/.env
+backend/node_modules
+database/kelassi.json
+database/sessions.json
+database/uploads
+.DS_Store
+*.log
+.vscode
+.idea

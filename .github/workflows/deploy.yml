@@ -1,0 +1,22 @@
+name: Deploy Hostinger
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on Hostinger VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.HOSTINGER_PATH }}
+            git pull
+            npm ci
+            npm run build
+            pm2 restart kelassi --update-env || pm2 start ecosystem.config.cjs

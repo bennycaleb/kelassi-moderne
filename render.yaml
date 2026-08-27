@@ -1,0 +1,24 @@
+# Blueprint Render — un seul Web Service (front + API Express).
+# Dans Render : New → Blueprint → choisir ce dépôt GitHub.
+services:
+  - type: web
+    name: kelassi-moderne
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: "0.0.0.0"
+      # Ne pas définir VITE_API_URL : le front et l’API sont sur la même URL.
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: OWNER_PASSWORD
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
