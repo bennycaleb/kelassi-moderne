@@ -121,7 +121,7 @@ function visibleStudents(db, session, year) {
     students = students.filter((item) => item.userId === session.id);
   } else if (session.role === 'parent') {
     const parent = db.parents.find((item) => item.userId === session.id);
-    const ids = parent?.childrenIds || [];
+    const ids = school.linkedStudentIds(db, parent);
     students = students.filter((item) => ids.includes(item.id));
   } else if (!STAFF.includes(session.role)) {
     students = [];

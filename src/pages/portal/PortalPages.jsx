@@ -153,6 +153,83 @@ export function StudentHome() {
   );
 }
 
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function ChildFiche({ fiche }) {
+  const child = fiche.student || {};
+  const today = todayKey();
+  const todayRecord = (fiche.attendance || []).find((item) => item.date === today);
+  const recentAttendance = (fiche.attendance || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 8);
+
+  return (
+    <div className="parent-child-card">
+      <div className="person-cell">
+        <Avatar src={child.photo} name={child.firstName} size="profile" />
+        <div>
+          <h3>{child.firstName} {child.lastName}</h3>
+          <p>{child.className || 'Sans classe'} · {child.matricule}</p>
+        </div>
+      </div>
+      <div className="grid-three">
+        <div className="stat-card panel">
+          <h3>📍 Aujourd’hui</h3>
+          <p>
+            {todayRecord
+              ? <><PresenceMark status={todayRecord.status} /> {todayRecord.status}{todayRecord.method === 'facial' ? ' (scan visage)' : ''}</>
+              : <b>Pas encore d’appel</b>}
+          </p>
+        </div>
+        <div className="stat-card panel"><h3>📊 Moyenne</h3><p><b>{fiche.average || '—'}/20</b></p></div>
+        <div className="stat-card panel"><h3>🏆 Rang</h3><p><b>{fiche.ranking?.rankLabel || '—'}</b>{fiche.ranking?.total ? ` / ${fiche.ranking.total}` : ''}</p></div>
+        <div className="stat-card panel"><h3>🕐 Absences</h3><p><b>{fiche.absences || 0}</b> · {fiche.lates || 0} retard(s)</p></div>
+        <div className="stat-card panel"><h3>💰 Scolarité</h3><p><b>{fiche.tuition?.statusLabel || 'Non renseigné'}</b>{fiche.tuition?.due ? ` · reste ${fiche.tuition.due}` : ''}</p></div>
+      </div>
+      <div className="grid-two">
+        <div className="panel">
+          <h2>Présences</h2>
+          {recentAttendance.length
+            ? recentAttendance.map((item) => (
+              <p key={item.id}>{item.date} — <PresenceMark status={item.status} /> {item.status}{item.method === 'facial' ? ' (reconnaissance faciale)' : ''}{item.justified ? ' (justifié)' : ''}</p>
+            ))
+            : <p>Aucune présence enregistrée pour le moment.</p>}
+        </div>
+        <div className="panel">
+          <h2>Notes</h2>
+          {(fiche.grades || []).length
+            ? (fiche.grades || []).map((item) => <p key={item.id}>{item.courseTitle} ({item.type || item.label}) : {item.score}/20</p>)
+            : <p>Aucune note pour le moment.</p>}
+        </div>
+      </div>
+      <div className="grid-two">
+        <div className="panel">
+          <h2>Emploi du temps</h2>
+          {(fiche.timetable || []).length
+            ? (fiche.timetable || []).map((slot) => (
+              <p key={slot.id}>{slot.day} — {slot.startTime}–{slot.endTime} · {slot.subjectName} ({slot.room || 'Salle'})</p>
+            ))
+            : <p>Aucun créneau pour cette classe.</p>}
+        </div>
+        <div className="panel">
+          <h2>Paiements</h2>
+          {(fiche.payments || []).length
+            ? (fiche.payments || []).map((item) => <p key={item.id}>{item.feeType} — {money(item.amount)} ({item.status})</p>)
+            : <p>Aucun paiement enregistré.</p>}
+        </div>
+      </div>
+      <div className="panel">
+        <h2>Documents</h2>
+        <div className="row-actions">
+          {DOCUMENT_TYPES.filter((item) => item.id !== 'receipt').map((item) => (
+            <a key={item.id} className="btn btn-secondary btn-sm" href={`/print/${item.id}?studentId=${child.id}`} target="_blank" rel="noreferrer">{item.label}</a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ParentHome() {
   const [data, setData] = useState(null);
   const [desk, setDesk] = useState(null);
@@ -182,28 +259,14 @@ export function ParentHome() {
         </div>
       ) : null}
       <h2>Mes enfants</h2>
-      <div className="course-grid">
-        {(data.children || []).map((fiche) => {
-          const child = fiche.student;
-          return (
-            <div className="course-card" key={child.id}>
-              <div className="person-cell">
-                <Avatar src={child.photo} name={child.firstName} size="profile" />
-                <div>
-                  <h3>{child.firstName} {child.lastName}</h3>
-                  <p>{child.className}</p>
-                </div>
-              </div>
-              <p>📊 Moyenne : {fiche.average || '—'}/20</p>
-              <p>🏆 Rang : {fiche.ranking?.rankLabel || '—'}{fiche.ranking?.total ? ` / ${fiche.ranking.total}` : ''}</p>
-              <p>🕐 Absences : {fiche.absences || 0}</p>
-              <p>💰 Scolarité : {fiche.tuition?.statusLabel || 'Non renseigné'}{fiche.tuition?.due ? ` · reste ${fiche.tuition.due}` : ''}</p>
-              <p>📄 Bulletin disponible</p>
-              <a className="btn btn-sm" href={`/print/bulletin?studentId=${child.id}`} target="_blank" rel="noreferrer">Télécharger le bulletin</a>
-            </div>
-          );
-        })}
-      </div>
+      {(data.children || []).length === 0 ? (
+        <div className="panel">
+          <p><b>Aucun enfant n’est encore lié à ce compte.</b></p>
+          <p>L’administration doit aller dans <b>Parents / tuteurs</b>, cliquer sur <b>Lier les enfants</b> et cocher l’élève. Ensuite le parent voit la présence (y compris le scan visage), les notes, l’emploi du temps et les documents.</p>
+        </div>
+      ) : (data.children || []).map((fiche) => (
+        <ChildFiche key={fiche.student.id} fiche={fiche} />
+      ))}
     </PortalShell>
   );
 }
@@ -247,15 +310,20 @@ export function PaymentsList() {
   );
 }
 
-export function StudentAbsences() {
+export function StudentAbsences({ title = '🕐 Mes absences' }) {
   const [items, setItems] = useState(null);
   useEffect(() => { api('/api/attendance').then((data) => setItems(data.attendance)).catch(() => {}); }, []);
   if (!items) return <p>Chargement…</p>;
   return (
-    <PortalShell title="🕐 Mes absences">
+    <PortalShell title={title}>
       <div className="panel">
-        {items.map((item) => (
-          <p key={item.id}>{item.date} — <PresenceMark status={item.status} /> {item.method === 'facial' ? '(reconnaissance faciale)' : ''} {item.justified ? '(justifié)' : ''}</p>
+        {items.length === 0 ? <p>Aucune présence enregistrée pour le moment.</p> : items.map((item) => (
+          <p key={item.id}>
+            {item.date} — {item.studentName ? `${item.studentName} · ` : ''}
+            <PresenceMark status={item.status} /> {item.status}
+            {item.method === 'facial' ? ' (reconnaissance faciale)' : ''}
+            {item.justified ? ' (justifié)' : ''}
+          </p>
         ))}
       </div>
     </PortalShell>
@@ -274,6 +342,38 @@ export function StudentDocuments() {
           <a key={item.id} className="btn btn-secondary" href={`/print/${item.id}?studentId=${student.id}`} target="_blank" rel="noreferrer">{item.label}</a>
         ))}
       </div>
+    </PortalShell>
+  );
+}
+
+export function ParentDocuments() {
+  const [children, setChildren] = useState(null);
+  useEffect(() => {
+    api('/api/parent/children').then((data) => setChildren(data.children || [])).catch(() => setChildren([]));
+  }, []);
+  if (!children) return <p>Chargement…</p>;
+  if (!children.length) {
+    return (
+      <PortalShell title="📄 Documents">
+        <div className="panel"><p>Aucun enfant lié. Demandez à l’administration de cocher l’élève dans Parents / tuteurs.</p></div>
+      </PortalShell>
+    );
+  }
+  return (
+    <PortalShell title="📄 Documents">
+      {children.map((fiche) => {
+        const child = fiche.student;
+        return (
+          <div className="panel" key={child.id}>
+            <h2>{child.firstName} {child.lastName}</h2>
+            <div className="row-actions">
+              {DOCUMENT_TYPES.filter((item) => item.id !== 'receipt').map((item) => (
+                <a key={item.id} className="btn btn-secondary" href={`/print/${item.id}?studentId=${child.id}`} target="_blank" rel="noreferrer">{item.label}</a>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </PortalShell>
   );
 }

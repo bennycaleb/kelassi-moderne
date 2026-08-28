@@ -1482,3 +1482,28 @@ a.class-card {
 .ai-form input {
   flex: 1;
 }
+
+.check-list {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.check-list label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+  margin: 0;
+}
+
+.parent-child-card {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}

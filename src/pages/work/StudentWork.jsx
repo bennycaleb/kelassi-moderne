@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api, downloadAuthFile, readFile } from '../../services/api';
 
-function StudentWork() {
+function StudentWork({ readOnly = false }) {
   const [items, setItems] = useState([]);
   const [tab, setTab] = useState('cours');
   const [error, setError] = useState('');
@@ -38,7 +38,7 @@ function StudentWork() {
     <div>
       <div className="page-header">
         <h1>Cours & devoirs</h1>
-        <p>Documents de votre classe uniquement. Vous déposez votre réponse ; seul le professeur note.</p>
+        <p>{readOnly ? 'Documents et devoirs de la classe de votre enfant.' : 'Documents de votre classe uniquement. Vous déposez votre réponse ; seul le professeur note.'}</p>
       </div>
       {message && <div className="credentials-box">{message}</div>}
       {error && <p className="error">{error}</p>}
@@ -63,7 +63,7 @@ function StudentWork() {
               </div>
               <div className="row-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => downloadAuthFile(`/api/work/${item.id}/file`, item.originalName)}>📥 Télécharger le sujet</button>
-                {item.type === 'devoir' && !graded && (
+                {item.type === 'devoir' && !graded && !readOnly && (
                   <>
                     <input type="file" accept=".pdf,.doc,.docx,application/pdf,image/*" onChange={(event) => setFiles((current) => ({ ...current, [item.id]: event.target.files?.[0] }))} />
                     <button type="button" className="btn" onClick={() => submitAnswer(item)}>{mine ? 'Remplacer ma réponse' : 'Déposer ma réponse'}</button>
@@ -73,14 +73,28 @@ function StudentWork() {
                   <button type="button" className="btn btn-secondary" onClick={() => downloadAuthFile(`/api/submissions/${mine.id}/file`, mine.fileName)}>Télécharger ma réponse</button>
                 )}
               </div>
-              {item.type === 'devoir' && (
-                <p className="work-grade">
-                  {graded
-                    ? <>Note attribuée par le professeur : <b>{mine.score}/20</b>{mine.teacherComment ? ` — ${mine.teacherComment}` : ''}</>
-                    : mine
-                      ? 'Réponse déposée. En attente de correction du professeur.'
-                      : 'Pas encore de réponse.'}
-                </p>
+                {item.type === 'devoir' && (
+                <div className="work-grade">
+                  {readOnly
+                    ? ((item.childSubmissions && item.childSubmissions.length)
+                      ? item.childSubmissions.map((sub) => (
+                        <p key={sub.id}>
+                          {sub.studentName} : {sub.score !== null && sub.score !== undefined && sub.score !== '' ? <b>{sub.score}/20</b> : 'réponse déposée, en attente de note'}
+                          {sub.teacherComment ? ` — ${sub.teacherComment}` : ''}
+                          {sub.id ? <> · <button type="button" className="btn btn-secondary btn-sm" onClick={() => downloadAuthFile(`/api/submissions/${sub.id}/file`, sub.fileName)}>Télécharger la copie</button></> : null}
+                        </p>
+                      ))
+                      : <p>Pas encore de réponse de votre enfant.</p>)
+                    : (
+                      <p>
+                        {graded
+                          ? <>Note attribuée par le professeur : <b>{mine.score}/20</b>{mine.teacherComment ? ` — ${mine.teacherComment}` : ''}</>
+                          : mine
+                            ? 'Réponse déposée. En attente de correction du professeur.'
+                            : 'Pas encore de réponse.'}
+                      </p>
+                    )}
+                </div>
               )}
             </div>
           );

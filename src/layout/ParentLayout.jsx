@@ -9,10 +9,12 @@ function ParentLayout({ user, logout, children }) {
         <div className="sidebar-logo"><div className="logo-icon">K</div><div className="logo-text">Kelassi</div></div>
         <nav>
           <NavLink to="/parent" end>Mes enfants</NavLink>
-          <NavLink to="/parent/grades">Notes</NavLink>
           <NavLink to="/parent/attendance">Présences</NavLink>
+          <NavLink to="/parent/grades">Notes</NavLink>
           <NavLink to="/parent/timetable">Emploi du temps</NavLink>
+          <NavLink to="/parent/work">Cours & devoirs</NavLink>
           <NavLink to="/parent/payments">Paiements</NavLink>
+          <NavLink to="/parent/documents">Documents</NavLink>
           <NavLink to="/parent/announcements">Annonces</NavLink>
         </nav>
         <div className="sidebar-bottom"><button type="button" onClick={logout}>Déconnexion</button></div>

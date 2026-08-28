@@ -36,7 +36,7 @@ import OwnerLayout from '../layout/OwnerLayout';
 import Tenants from '../pages/owner/Tenants';
 import StudentWork from '../pages/work/StudentWork';
 import TeacherWork from '../pages/work/TeacherWork';
-import StudentHome, { TeacherHome, ParentHome, SimpleList, PaymentsList, StudentAbsences, StudentDocuments, TeacherMessages } from '../pages/portal/PortalPages';
+import StudentHome, { TeacherHome, ParentHome, SimpleList, PaymentsList, StudentAbsences, StudentDocuments, ParentDocuments, TeacherMessages } from '../pages/portal/PortalPages';
 
 const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant'];
 
@@ -207,9 +207,11 @@ function AppRouter() {
               <Routes>
                 <Route index element={<ParentHome />} />
                 <Route path="grades" element={<SimpleList title="Notes" path="/api/grades" field="grades" line={(item) => `${item.studentName} — ${item.courseTitle} : ${item.score}/20`} />} />
-                <Route path="attendance" element={<SimpleList title="Absences & présences" path="/api/attendance" field="attendance" line={(item) => `${item.date} — ${item.studentName || ''} — ${item.status}${item.method === 'facial' ? ' (reconnaissance faciale)' : ''}${item.justified ? ' (justifié)' : ''}`} />} />
+                <Route path="attendance" element={<StudentAbsences title="Présences de vos enfants" />} />
                 <Route path="timetable" element={<SimpleList title="Emploi du temps" path="/api/timetable" field="timetable" line={(item) => `${item.day} ${item.startTime} — ${item.subjectName} (${item.className})`} />} />
+                <Route path="work" element={<StudentWork readOnly />} />
                 <Route path="payments" element={<PaymentsList />} />
+                <Route path="documents" element={<ParentDocuments />} />
                 <Route path="announcements" element={<SimpleList title="Annonces" path="/api/announcements" field="announcements" line={(item) => `${item.title} — ${item.body}`} />} />
               </Routes>
             </ParentLayout>

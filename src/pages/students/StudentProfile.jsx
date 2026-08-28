@@ -29,6 +29,8 @@ function StudentProfile() {
   const [payError, setPayError] = useState('');
   const [aiDraft, setAiDraft] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [parentAccounts, setParentAccounts] = useState([]);
+  const [linkParentId, setLinkParentId] = useState('');
   const [payForm, setPayForm] = useState({
     amount: '',
     method: PAYMENT_METHODS[0],
@@ -39,6 +41,7 @@ function StudentProfile() {
 
   useEffect(() => {
     api(`/api/students/${id}`).then(setData).catch((err) => setError(err.message));
+    api('/api/parents').then((payload) => setParentAccounts(payload.parents || [])).catch(() => {});
   }, [id, year]);
 
   if (error) return <p className="error">{error}</p>;
@@ -113,7 +116,32 @@ function StudentProfile() {
           <p><b>Tuteur déclaré :</b> {student.parentName || '—'} · {student.parentPhone || ''} · {student.parentEmail || ''}</p>
           {parents?.length ? parents.map((parent) => (
             <p key={parent.id}>{parent.firstName} {parent.lastName} — {parent.phone} — {parent.email}</p>
-          )) : <p>Aucun compte parent lié pour le moment.</p>}
+          )) : <p>Aucun compte parent lié pour le moment. Sans ce lien, le parent ne voit pas les infos de l’élève.</p>}
+          <form
+            className="form-grid"
+            style={{ marginTop: 16 }}
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!linkParentId) return;
+              const account = parentAccounts.find((item) => item.id === linkParentId);
+              const childrenIds = [...new Set([...(account?.childrenIds || []), student.id])];
+              await api(`/api/parents/${linkParentId}`, { method: 'PUT', body: { childrenIds } });
+              setLinkParentId('');
+              await reload();
+              api('/api/parents').then((payload) => setParentAccounts(payload.parents || [])).catch(() => {});
+            }}
+          >
+            <div className="form-field full">
+              <label>Lier un compte parent existant</label>
+              <select value={linkParentId} onChange={(event) => setLinkParentId(event.target.value)}>
+                <option value="">Choisir un parent…</option>
+                {parentAccounts.filter((item) => !(item.childrenIds || []).includes(student.id)).map((item) => (
+                  <option key={item.id} value={item.id}>{item.firstName} {item.lastName} — {item.email}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field"><button className="btn" type="submit" disabled={!linkParentId}>Lier à cet élève</button></div>
+          </form>
         </div>
       )}
 

@@ -192,6 +192,20 @@ function sessionStudent(db, session) {
   return db.students.find((item) => item.userId === session.id) || null;
 }
 
+function sessionParent(db, session) {
+  return (db.parents || []).find((item) => item.userId === session.id) || null;
+}
+
+function asIdList(value) {
+  if (Array.isArray(value)) return value.filter(Boolean).map(String);
+  if (value) return [String(value)];
+  return [];
+}
+
+function parentChildIds(db, parent) {
+  return school.linkedStudentIds(db, parent);
+}
+
 function saveUpload(prefix, fileName, dataUrl) {
   const match = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/);
   if (!match) {
@@ -300,7 +314,11 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
     const teacher = db.teachers.find((item) => item.userId === user.id);
     payload.teacher = teacher ? school.withTeacher(db, teacher) : null;
   }
-  if (user.role === 'parent') payload.parent = db.parents.find((item) => item.userId === user.id) || null;
+  if (user.role === 'parent') {
+    const parent = db.parents.find((item) => item.userId === user.id) || null;
+    if (parent && school.syncFamilyLinks(db, { parent })) save(req, db);
+    payload.parent = parent;
+  }
   return res.json({ success: true, ...payload });
 });
 
@@ -371,7 +389,7 @@ app.get('/api/students', requireAuth, (req, res) => {
   students = students.map((item) => school.withTuition(db, school.withRank(db, item, year, ranks), year));
   if (req.session.role === 'parent') {
     const parent = db.parents.find((item) => item.userId === req.session.id);
-    students = students.filter((item) => parent && parent.childrenIds.includes(item.id));
+    students = students.filter((item) => parent && parentChildIds(db, parent).includes(item.id));
   }
   if (req.session.role === 'student') {
     students = students.filter((item) => item.userId === req.session.id);
@@ -442,6 +460,7 @@ app.post('/api/students', requireStaff, (req, res) => {
   };
   db.users.push({ id: userId, email, password, role: 'student', name: `${firstName} ${lastName}`, createdAt: now() });
   db.students.push(student);
+  school.syncFamilyLinks(db, { student });
   save(req, db);
   return res.status(201).json({ success: true, message: 'Étudiant inscrit et compte ouvert', student: school.withStudent(db, student), credentials: { email, password } });
 });
@@ -477,6 +496,7 @@ app.put('/api/students/:id', requireStaff, (req, res) => {
     user.email = email;
     user.name = `${student.firstName} ${student.lastName}`;
   }
+  school.syncFamilyLinks(db, { student });
   save(req, db);
   return res.json({ success: true, student: school.withStudent(db, student) });
 });
@@ -839,7 +859,7 @@ app.get('/api/timetable', requireAuth, (req, res) => {
   }
   if (req.session.role === 'parent') {
     const parent = db.parents.find((item) => item.userId === req.session.id);
-    const classIds = db.students.filter((item) => parent && parent.childrenIds.includes(item.id)).map((item) => item.classId);
+    const classIds = db.students.filter((item) => parent && parentChildIds(db, parent).includes(item.id)).map((item) => item.classId);
     slots = slots.filter((item) => classIds.includes(item.classId));
   }
   const enriched = slots.map((slot) => school.withSlot(db, slot));
@@ -889,7 +909,7 @@ app.get('/api/attendance', requireAuth, (req, res) => {
   }
   if (req.session.role === 'parent') {
     const parent = db.parents.find((item) => item.userId === req.session.id);
-    records = records.filter((item) => parent && parent.childrenIds.includes(item.studentId));
+    records = records.filter((item) => parent && parentChildIds(db, parent).includes(item.studentId));
   }
   const summary = {
     present: records.filter((item) => item.status === 'présent').length,
@@ -985,7 +1005,7 @@ app.get('/api/grades', requireAuth, (req, res) => {
   }
   if (req.session.role === 'parent') {
     const parent = db.parents.find((item) => item.userId === req.session.id);
-    grades = grades.filter((item) => parent && parent.childrenIds.includes(item.studentId));
+    grades = grades.filter((item) => parent && parentChildIds(db, parent).includes(item.studentId));
   }
   if (req.query.classId) {
     const ids = db.students.filter((item) => item.classId === req.query.classId).map((item) => item.id);
@@ -1267,7 +1287,7 @@ app.get('/api/payments', requireAuth, (req, res) => {
   }
   if (req.session.role === 'parent') {
     const parent = db.parents.find((item) => item.userId === req.session.id);
-    payments = payments.filter((item) => parent && parent.childrenIds.includes(item.studentId));
+    payments = payments.filter((item) => parent && parentChildIds(db, parent).includes(item.studentId));
   }
   const totals = {
     paid: payments.filter((item) => item.status === 'payé').reduce((sum, item) => sum + Number(item.amount || 0), 0),
@@ -1446,10 +1466,19 @@ app.delete('/api/events/:id', requireStaff, (req, res) => {
 
 app.get('/api/parents', requireStaff, (req, res) => {
   const db = load(req);
-  const parents = db.parents.map((parent) => ({
-    ...parent,
-    children: db.students.filter((student) => (parent.childrenIds || []).includes(student.id)).map((student) => school.withStudent(db, student))
-  }));
+  let changed = false;
+  db.parents.forEach((parent) => {
+    if (school.syncFamilyLinks(db, { parent })) changed = true;
+  });
+  if (changed) save(req, db);
+  const parents = db.parents.map((parent) => {
+    const ids = parentChildIds(db, parent);
+    return {
+      ...parent,
+      childrenIds: ids,
+      children: db.students.filter((student) => ids.includes(student.id)).map((student) => school.withStudent(db, student))
+    };
+  });
   return res.json({ success: true, parents });
 });
 
@@ -1469,13 +1498,51 @@ app.post('/api/parents', requireStaff, (req, res) => {
     lastName,
     email,
     phone: req.body.phone || '',
-    childrenIds: Array.isArray(req.body.childrenIds) ? req.body.childrenIds : [],
+    childrenIds: asIdList(req.body.childrenIds),
     createdAt: now()
   };
   db.users.push({ id: userId, email, password, role: 'parent', name: `${firstName} ${lastName}`, createdAt: now() });
   db.parents.push(parent);
+  school.syncFamilyLinks(db, { parent });
   save(req, db);
-  return res.status(201).json({ success: true, parent, credentials: { email, password } });
+  return res.status(201).json({
+    success: true,
+    parent: { ...parent, children: db.students.filter((student) => parentChildIds(db, parent).includes(student.id)) },
+    credentials: { email, password }
+  });
+});
+
+app.put('/api/parents/:id', requireStaff, (req, res) => {
+  const db = load(req);
+  const parent = db.parents.find((item) => item.id === req.params.id);
+  if (!parent) return res.status(404).json({ success: false, message: 'Parent introuvable' });
+  if (req.body.firstName) parent.firstName = String(req.body.firstName).trim();
+  if (req.body.lastName) parent.lastName = String(req.body.lastName).trim();
+  if (req.body.phone !== undefined) parent.phone = String(req.body.phone || '');
+  if (req.body.email) {
+    const email = String(req.body.email).trim().toLowerCase();
+    if (db.users.some((item) => item.email.toLowerCase() === email && item.id !== parent.userId)) {
+      return res.status(409).json({ success: false, message: 'Cet email est déjà utilisé' });
+    }
+    parent.email = email;
+    const user = db.users.find((item) => item.id === parent.userId);
+    if (user) {
+      user.email = email;
+      user.name = `${parent.firstName} ${parent.lastName}`;
+    }
+  }
+  if (req.body.childrenIds !== undefined) parent.childrenIds = asIdList(req.body.childrenIds);
+  school.syncFamilyLinks(db, { parent });
+  save(req, db);
+  const ids = parentChildIds(db, parent);
+  return res.json({
+    success: true,
+    parent: {
+      ...parent,
+      childrenIds: ids,
+      children: db.students.filter((student) => ids.includes(student.id)).map((student) => school.withStudent(db, student))
+    }
+  });
 });
 
 app.delete('/api/parents/:id', requireStaff, (req, res) => {
@@ -1554,17 +1621,34 @@ app.get('/api/work', requireAuth, (req, res) => {
   }
   if (req.session.role === 'parent') {
     const parent = db.parents.find((item) => item.userId === req.session.id);
-    const classIds = db.students.filter((item) => parent && parent.childrenIds.includes(item.id)).map((item) => item.classId);
+    const classIds = db.students.filter((item) => parent && parentChildIds(db, parent).includes(item.id)).map((item) => item.classId);
     items = items.filter((item) => classIds.includes(item.classId));
   }
   if (req.query.classId) items = items.filter((item) => item.classId === req.query.classId);
   if (req.query.type) items = items.filter((item) => item.type === req.query.type);
 
   const student = sessionStudent(db, req.session);
+  const parent = sessionParent(db, req.session);
+  const childIds = parentChildIds(db, parent);
   const payload = items.map((item) => {
     const work = school.withWork(db, item);
     const related = db.submissions.filter((sub) => sub.workId === item.id);
     const mine = student ? related.find((sub) => sub.studentId === student.id) : null;
+    const childSubmissions = childIds.length
+      ? related.filter((sub) => childIds.includes(sub.studentId)).map((sub) => {
+        const child = db.students.find((item) => item.id === sub.studentId);
+        return {
+          id: sub.id,
+          studentId: sub.studentId,
+          studentName: child ? `${child.firstName} ${child.lastName}` : '',
+          fileName: sub.originalName,
+          submittedAt: sub.submittedAt,
+          score: sub.score,
+          teacherComment: sub.teacherComment || '',
+          gradedAt: sub.gradedAt || ''
+        };
+      })
+      : [];
     return {
       ...work,
       storedName: undefined,
@@ -1577,7 +1661,8 @@ app.get('/api/work', requireAuth, (req, res) => {
         score: mine.score,
         teacherComment: mine.teacherComment || '',
         gradedAt: mine.gradedAt || ''
-      } : null
+      } : (childSubmissions[0] || null),
+      childSubmissions
     };
   });
   return res.json({ success: true, work: payload });
@@ -1788,6 +1873,12 @@ app.get('/api/work/:id/file', requireAuth, (req, res) => {
     if (!student || student.classId !== item.classId) {
       return res.status(403).json({ success: false, message: 'Accès refusé' });
     }
+  } else if (req.session.role === 'parent') {
+    const parent = sessionParent(db, req.session);
+    const classIds = db.students.filter((child) => parentChildIds(db, parent).includes(child.id)).map((child) => child.classId);
+    if (!classIds.includes(item.classId)) {
+      return res.status(403).json({ success: false, message: 'Accès refusé' });
+    }
   } else if (req.session.role === 'teacher' && !canManageWork(db, req.session, item)) {
     return res.status(403).json({ success: false, message: 'Accès refusé' });
   }
@@ -1800,8 +1891,10 @@ app.get('/api/submissions/:id/file', requireAuth, (req, res) => {
   if (!submission || !submission.storedName) return res.status(404).json({ success: false, message: 'Réponse introuvable' });
   const work = (db.workItems || []).find((item) => item.id === submission.workId);
   const student = sessionStudent(db, req.session);
+  const parent = sessionParent(db, req.session);
   const allowed = STAFF.includes(req.session.role)
     || (student && student.id === submission.studentId)
+    || (parent && parentChildIds(db, parent).includes(submission.studentId))
     || canManageWork(db, req.session, work);
   if (!allowed) return res.status(403).json({ success: false, message: 'Accès refusé' });
   return sendUpload(res, submission.storedName, submission.originalName, submission.mime);
@@ -1810,14 +1903,15 @@ app.get('/api/submissions/:id/file', requireAuth, (req, res) => {
 app.get('/api/parent/children', requireAuth, (req, res) => {
   const db = load(req);
   const year = school.yearOf(req, db);
-  let parent = db.parents.find((item) => item.userId === req.session.id);
+  let parent = sessionParent(db, req.session);
   if (!parent && STAFF.includes(req.session.role) && req.query.parentId) {
     parent = db.parents.find((item) => item.id === req.query.parentId);
   }
   if (req.session.role === 'parent' && !parent) {
     return res.status(404).json({ success: false, message: 'Compte parent introuvable' });
   }
-  const ids = parent ? (parent.childrenIds || []) : [];
+  if (parent && school.syncFamilyLinks(db, { parent })) save(req, db);
+  const ids = parent ? parentChildIds(db, parent) : [];
   const children = ids
     .map((studentId) => db.students.find((item) => item.id === studentId))
     .filter(Boolean)
@@ -1832,6 +1926,22 @@ app.get('/api/documents/data', requireAuth, (req, res) => {
   const student = db.students.find((item) => item.id === req.query.studentId);
   const payment = db.payments.find((item) => item.id === req.query.paymentId);
   const classroom = db.classes.find((item) => item.id === req.query.classId);
+  if (req.session.role === 'parent') {
+    const parent = sessionParent(db, req.session);
+    const ids = parentChildIds(db, parent);
+    if (student && !ids.includes(student.id)) {
+      return res.status(403).json({ success: false, message: 'Accès refusé' });
+    }
+    if (payment && !ids.includes(payment.studentId)) {
+      return res.status(403).json({ success: false, message: 'Accès refusé' });
+    }
+  }
+  if (req.session.role === 'student') {
+    const me = sessionStudent(db, req.session);
+    if (student && me && student.id !== me.id) {
+      return res.status(403).json({ success: false, message: 'Accès refusé' });
+    }
+  }
   return res.json({
     success: true,
     type,

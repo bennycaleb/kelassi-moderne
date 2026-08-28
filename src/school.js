@@ -240,8 +240,46 @@ function withAttendance(db, item) {
   };
 }
 
+function attachChild(parent, studentId) {
+  if (!parent || !studentId) return false;
+  const ids = parent.childrenIds || [];
+  if (ids.includes(studentId)) return false;
+  parent.childrenIds = ids.concat(studentId);
+  return true;
+}
+
+function linkedStudentIds(db, parent) {
+  if (!parent) return [];
+  const ids = new Set(parent.childrenIds || []);
+  const email = String(parent.email || '').trim().toLowerCase();
+  if (email) {
+    (db.students || []).forEach((student) => {
+      if (String(student.parentEmail || '').trim().toLowerCase() === email) ids.add(student.id);
+    });
+  }
+  return [...ids];
+}
+
+function syncFamilyLinks(db, { parent, student } = {}) {
+  let changed = false;
+  if (student) {
+    const email = String(student.parentEmail || '').trim().toLowerCase();
+    if (email) {
+      (db.parents || []).forEach((item) => {
+        if (String(item.email || '').trim().toLowerCase() === email && attachChild(item, student.id)) changed = true;
+      });
+    }
+  }
+  if (parent) {
+    linkedStudentIds(db, parent).forEach((studentId) => {
+      if (attachChild(parent, studentId)) changed = true;
+    });
+  }
+  return changed;
+}
+
 function parentsOf(db, studentId) {
-  return db.parents.filter((parent) => (parent.childrenIds || []).includes(studentId));
+  return (db.parents || []).filter((parent) => linkedStudentIds(db, parent).includes(studentId));
 }
 
 function monthKey(date) {
@@ -606,5 +644,8 @@ module.exports = {
   endTimeOf,
   withSlot,
   withAttendance,
-  parentsOf
+  parentsOf,
+  linkedStudentIds,
+  syncFamilyLinks,
+  attachChild
 };
