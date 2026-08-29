@@ -24,7 +24,7 @@ export const SUBJECT_OPTIONS = [
 
 export const GRADE_LABELS = ['Contrôle 1', 'Contrôle 2', 'Contrôle continu', 'Interrogation', 'Devoir', 'Examen', 'Projet'];
 
-export const PAYMENT_METHODS = ['Espèces', 'Mobile Money', 'Banque', 'Virement bancaire'];
+export const PAYMENT_METHODS = ['Espèces', 'MTN MoMo', 'Airtel Money', 'Mobile Money', 'Banque', 'Virement bancaire'];
 
 export const FEE_TYPES = [
   "Frais d'inscription",

@@ -43,7 +43,7 @@ function AiAssistant({ variant = 'dock' }) {
       <div className="ai-panel-head">
         <div>
           <strong>Kelassi IA</strong>
-          <small>Toutes questions sur l’école, les personnes et Kelassi</small>
+          <small>École, Kelassi, ou n’importe quelle question comme ChatGPT</small>
         </div>
         {variant !== 'page' && <button type="button" className="ai-close" onClick={() => setOpen(false)}>×</button>}
       </div>
@@ -60,7 +60,7 @@ function AiAssistant({ variant = 'dock' }) {
         <div ref={bottom} />
       </div>
       {error && <p className="error">{error}</p>}
-      <p className="ai-hint">Les boutons ci-dessous sont des exemples. Posez n’importe quelle question.</p>
+      <p className="ai-hint">Posez n’importe quelle question : l’école, un cours, un devoir, ou un sujet général.</p>
       <div className="ai-suggestions">
         {(desk?.suggestions || []).map((item) => (
           <button type="button" key={item} onClick={() => send(item)}>{item}</button>
@@ -76,7 +76,7 @@ function AiAssistant({ variant = 'dock' }) {
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="N’importe quelle question : une personne, une classe, comment utiliser Kelassi…"
+          placeholder="Une question sur l’école, ou n’importe quel sujet (comme ChatGPT)…"
         />
         <button className="btn" type="submit" disabled={loading}>Envoyer</button>
       </form>

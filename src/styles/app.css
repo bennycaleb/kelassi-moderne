@@ -1502,8 +1502,33 @@ a.class-card {
   margin: 0;
 }
 
-.parent-child-card {
+.pay-mobile {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.pay-channels {
   display: grid;
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin: 12px 0;
+}
+
+.pay-channel {
+  background: white;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.pay-channel h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.pay-number {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 8px 0 12px;
 }

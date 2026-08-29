@@ -5,6 +5,7 @@ import PresenceMark from '../../components/PresenceMark';
 import { DOCUMENT_TYPES } from '../../constants';
 import { api, money } from '../../services/api';
 import { getAiDesk } from '../../services/ai';
+import MobileMoneyPay from '../../components/MobileMoneyPay';
 
 function PortalShell({ title, children }) {
   return (
@@ -258,6 +259,12 @@ export function ParentHome() {
           <p style={{ whiteSpace: 'pre-wrap' }}>{desk.briefing}</p>
         </div>
       ) : null}
+      <MobileMoneyPay
+        channels={{
+          ...(data.me.settings || {}),
+          hasAny: Boolean((data.me.settings || {}).momoNumber || (data.me.settings || {}).airtelMoneyNumber)
+        }}
+      />
       <h2>Mes enfants</h2>
       {(data.children || []).length === 0 ? (
         <div className="panel">
@@ -293,6 +300,7 @@ export function PaymentsList() {
   const tuition = data.tuition;
   return (
     <PortalShell title="💰 Mes paiements">
+      <MobileMoneyPay channels={data.paymentChannels} />
       {tuition && (
         <div className="panel">
           <p><b>{tuition.statusLabel}</b> — payé {money(tuition.paid)}{tuition.due ? ` · reste ${money(tuition.due)}` : ''}{tuition.paidPercent ? ` · ${tuition.paidPercent} %` : ''}</p>

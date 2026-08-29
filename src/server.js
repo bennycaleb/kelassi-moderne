@@ -368,7 +368,7 @@ app.get('/api/meta', requireAuth, (req, res) => {
 
 app.put('/api/settings', requireStaff, (req, res) => {
   const db = load(req);
-  db.settings = { ...db.settings, ...pick(req.body, ['schoolName', 'logo', 'address', 'phone', 'email', 'currency', 'currentYear', 'terms', 'tuitionAmount', 'directorName', 'signature']) };
+  db.settings = { ...db.settings, ...pick(req.body, ['schoolName', 'logo', 'address', 'phone', 'email', 'currency', 'currentYear', 'terms', 'tuitionAmount', 'directorName', 'signature', 'momoName', 'momoNumber', 'airtelMoneyName', 'airtelMoneyNumber', 'paymentInstructions']) };
   if (req.body.tuitionAmount !== undefined) db.settings.tuitionAmount = Number(req.body.tuitionAmount) || 0;
   if (req.body.currentYear && !db.years.includes(req.body.currentYear)) db.years.push(req.body.currentYear);
   save(req, db);
@@ -1309,7 +1309,8 @@ app.get('/api/payments', requireAuth, (req, res) => {
     totals,
     situation,
     tuition,
-    tuitionAmount: school.tuitionExpected(db)
+    tuitionAmount: school.tuitionExpected(db),
+    paymentChannels: school.paymentChannels(db)
   });
 });
 

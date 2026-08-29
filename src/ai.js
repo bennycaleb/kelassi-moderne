@@ -23,7 +23,7 @@ function llmConfigured() {
 function allowAsk(sessionId) {
   const now = Date.now();
   const recent = (askBuckets.get(sessionId) || []).filter((stamp) => now - stamp < 60000);
-  if (recent.length >= 20) return false;
+  if (recent.length >= 80) return false;
   recent.push(now);
   askBuckets.set(sessionId, recent);
   return true;
@@ -274,6 +274,7 @@ function buildContext(db, session, year, message = '') {
     currency: db.settings?.currency || 'FC',
     directorName: db.settings?.directorName || '',
     tuitionAmount: Number(db.settings?.tuitionAmount || 0),
+    paymentChannels: school.paymentChannels(db),
     guide: SYSTEM_GUIDE,
     totals: {
       students: snapshots.length,
@@ -363,20 +364,20 @@ const SYSTEM_GUIDE = [
   { keys: ['note', 'moyenne', 'evaluation', 'coefficient', 'notation'], text: 'Notes : menu Notes (grille). Les moyennes et le rang (1er, 2ème…) se calculent tout seuls. Règles de notation et Évaluations définissent les barèmes.' },
   { keys: ['rang', 'classement', 'premier'], text: 'Le rang est calculé par classe, moyenne décroissante : 1er, 2ème… Les ex æquo ont le même rang. Visible sur la classe, la fiche, le bulletin et les portails.' },
   { keys: ['bulletin', 'document', 'carte', 'certificat', 'recu', 'pdf'], text: 'Documents : menu Documents, ou fiche élève, ou classe → Générer les bulletins. Carte d’étudiant, reçu de paiement, certificats. Signature du premier responsable dans Paramètres.' },
-  { keys: ['paiement', 'scolarite', 'paye', 'impaye', 'versement'], text: 'Paiements : menu Paiements. Situation par élève, Marquer payé, versement, reçu PDF. Indiquez le montant de scolarité attendu dans Paramètres.' },
+  { keys: ['paiement', 'scolarite', 'paye', 'impaye', 'versement', 'momo', 'airtel', 'mobile money'], text: 'Paiements : menu Paiements. Situation par élève, Marquer payé, versement, reçu PDF. Le montant de scolarité et les numéros MTN MoMo / Airtel Money se renseignent dans Paramètres : les parents les voient pour payer en ligne.' },
   { keys: ['parent', 'tuteur'], text: 'Parents : menu Parents, lier aux enfants. Le parent se connecte à /parent (notes, absences, paiements, bulletin).' },
   { keys: ['annonce', 'communication', 'message'], text: 'Annonces : menu Annonces / Communication. Visibles selon l’espace (admin, prof, élève, parent).' },
-  { keys: ['ia', 'kelassi ia', 'assistant', 'intelligence'], text: 'Kelassi IA répond à toute question sur l’école, les personnes (élèves, profs, parents, personnel) et l’usage de Kelassi, dans la limite de ce que votre compte a le droit de voir. Elle ne change pas les notes ni les paiements.' },
+  { keys: ['ia', 'kelassi ia', 'assistant', 'intelligence', 'chatgpt'], text: 'Kelassi IA répond à toute question : l’école, Kelassi, et aussi les questions générales (cours, culture, explications) comme ChatGPT. Elle ne change pas les notes ni les paiements et ne révèle pas les mots de passe.' },
   { keys: ['parametre', 'signature', 'responsable', 'devise', 'annee'], text: 'Paramètres : nom de l’école, année, devise, scolarité attendue, nom et signature du premier responsable.' },
   { keys: ['utilisateur', 'admin', 'comptable', 'secretaire', 'directeur'], text: 'Utilisateurs : comptes du personnel. Rôles : admin, directeur, secrétaire, comptable. L’enseignant, l’élève et le parent ont leurs propres espaces.' }
 ];
 
 function suggestionsFor(role) {
   if (role === 'student') {
-    return ['Qui est mon professeur ?', 'Comment voir mon bulletin ?', 'Explique mes résultats'];
+    return ['Quelle est ma moyenne ?', 'Aide-moi à réviser les maths', 'Comment voir mon bulletin ?'];
   }
   if (role === 'parent') {
-    return ['Qui enseigne à mon enfant ?', 'Comment payer la scolarité ?', 'Comment va mon enfant ?'];
+    return ['Comment payer par MoMo ?', 'Comment va mon enfant ?', 'Explique-moi les fractions'];
   }
   if (role === 'teacher') {
     return ['Qui sont mes élèves ?', 'Comment faire l’appel ?', 'Comment saisir les notes ?'];
@@ -429,12 +430,29 @@ function matchGuide(q) {
   return hits.map((item) => item.text).join('\n');
 }
 
+function payAnswer(context) {
+  const channels = context.paymentChannels || {};
+  const payInfo = [
+    channels.momoNumber ? `MTN MoMo${channels.momoName ? ` (${channels.momoName})` : ''} : ${channels.momoNumber}` : '',
+    channels.airtelMoneyNumber ? `Airtel Money${channels.airtelMoneyName ? ` (${channels.airtelMoneyName})` : ''} : ${channels.airtelMoneyNumber}` : '',
+    channels.paymentInstructions || ''
+  ].filter(Boolean).join('\n');
+  const money = !context.unpaid.length
+    ? 'Aucun impayé n’est visible avec les données actuelles.'
+    : `Situation scolarité :\n${context.unpaid.map((item) => `• ${item.name} (${item.className}) — ${item.status}${item.due ? `, reste ${item.due}` : ''}`).join('\n')}`;
+  return payInfo ? `${money}\n\nPour payer en ligne :\n${payInfo}` : money;
+}
+
 function localAnswer(message, context) {
   const q = fold(message);
   const role = context.role;
 
   if (context.namedPeople?.length) {
     return context.namedPeople.slice(0, 6).map(describePerson).join('\n\n');
+  }
+
+  if (q.includes('impay') || q.includes('scolarite') || q.includes('paiement') || q.includes('paye') || q.includes('momo') || q.includes('airtel') || q.includes('mobile money')) {
+    return payAnswer(context);
   }
 
   const howTo = q.includes('comment') || q.includes('ou trouver') || q.includes('ou est') || q.includes('comment faire') || q.includes('a quoi sert') || q.includes('c est quoi') || q.includes('kelassi');
@@ -485,18 +503,11 @@ function localAnswer(message, context) {
     return context.announcements.map((item) => `• ${item.title} — ${item.body}`).join('\n');
   }
 
-  if (q.includes('briefing') || q.includes('synthese') || q.includes('resume') || q.includes('aujourd')) {
+  if (q.includes('briefing') || /(^|\s)synthese(\s|$)/.test(q) || /(^|\s)resume(\s|$)/.test(q) || q.includes('aujourd')) {
     return briefingText(context);
   }
   if (q.includes('difficulte') || q.includes('decroche') || q.includes('alerte') || q.includes('risque')) {
     return `Voici les élèves à suivre :\n${listRisks(context.risks)}`;
-  }
-  if (q.includes('impay') || q.includes('scolarite') || q.includes('paiement') || q.includes('paye')) {
-    const help = matchGuide(q);
-    const money = !context.unpaid.length
-      ? 'Aucun impayé n’est visible avec les données actuelles.'
-      : `Situation scolarité :\n${context.unpaid.map((item) => `• ${item.name} (${item.className}) — ${item.status}${item.due ? `, reste ${item.due}` : ''}`).join('\n')}`;
-    return help ? `${money}\n\n${help}` : money;
   }
   if (q.includes('appreciation') || q.includes('redige') || q.includes('ecris')) {
     const item = context.focus[0];
@@ -549,7 +560,9 @@ function localAnswer(message, context) {
   return [
     briefingText(context),
     '',
-    'Je peux répondre à n’importe quelle question sur l’école, les personnes (élèves, enseignants, parents, personnel) et l’utilisation de Kelassi (notes, appel, bulletins, paiements, carte, etc.). Posez votre question librement.'
+    llmConfigured()
+      ? 'Je réponds aussi à n’importe quelle question générale (cours, devoirs, culture, explications), comme ChatGPT.'
+      : 'Pour des réponses générales comme ChatGPT, l’école doit ajouter une clé IA (GROQ_API_KEY, OPENAI_API_KEY ou GEMINI_API_KEY) dans Render. En attendant, posez-moi une question sur l’école, Kelassi ou le paiement Mobile Money.'
   ].join('\n');
 }
 
@@ -566,42 +579,66 @@ function briefingText(context) {
   return lines.filter(Boolean).join('\n');
 }
 
-function systemPrompt(role) {
-  const base = `Tu es Kelassi IA, l’assistant de l’établissement scolaire.
-Tu réponds à TOUTE question sur :
-- les personnes de l’école (élèves, enseignants, parents, personnel) présentes dans les données ;
-- le fonctionnement de Kelassi (menus, comment faire un appel, des notes, un bulletin, un paiement, une carte, etc.) ;
-- les résultats, le rang, les absences, la scolarité, les cours, l’emploi du temps, les annonces.
+function schoolishQuestion(message, context) {
+  const q = fold(message);
+  if (context.namedPeople?.length || context.namedClasses?.length) return true;
+  if (matchGuide(q)) return true;
+  return [
+    'ecole', 'kelassi', 'eleve', 'etudiant', 'prof', 'enseignant', 'parent', 'classe',
+    'moyenne', 'bulletin', 'scolarite', 'paiement', 'momo', 'airtel', 'absence',
+    'emploi du temps', 'appel', 'rang', 'parametre', 'connexion', 'mobile money'
+  ].some((key) => q.includes(key));
+}
 
-Les suggestions d’exemple ne limitent PAS les questions. Si on te demande quelque chose de lié à l’école ou au logiciel, tu réponds.
-Tu t’appuies UNIQUEMENT sur les données JSON et le guide fournis. Tu n’inventes jamais une note, un rang, un paiement, une absence ou une personne.
-Tu ne modifies pas les notes ni les paiements.
-Réponds en français, clair et utile. Si l’info n’est pas dans les données, dis-le et indique où la trouver dans Kelassi si le guide le permet.
-Ne révèle pas les mots de passe.`;
+function systemPrompt(role) {
+  const base = `Tu es Kelassi IA. Tu fonctionnes comme ChatGPT : tu réponds à TOUTE question, sans te limiter aux menus de l’application.
+Tu traites aussi bien :
+- les questions générales (cours, devoirs, sciences, histoire, langues, culture, conseils, explications, rédaction…) ;
+- les questions sur CETTE école et sur le logiciel Kelassi, en t’appuyant alors sur SCHOOL_DATA.
+
+Règles strictes pour les données scolaires :
+- n’invente jamais une note, un rang, un paiement, une absence ou une personne ;
+- si l’info n’est pas dans SCHOOL_DATA, dis-le clairement ;
+- ne révèle jamais de mot de passe ;
+- tu ne modifies pas les notes ni les paiements.
+Si on demande comment payer, donne les numéros MTN MoMo / Airtel Money présents dans SCHOOL_DATA.paymentChannels.
+Réponds en français, clair, complet et utile. Les suggestions d’exemple ne limitent PAS les questions.`;
   if (role === 'student') {
     return `${base}
 Tu tutoyes l’élève. Tu ne donnes pas les notes ou la vie scolaire des autres élèves.`;
   }
   if (role === 'parent') {
     return `${base}
-Tu parles au parent. Tu ne parles que de ses enfants, sauf pour expliquer comment utiliser Kelassi.`;
+Tu parles au parent. Pour la vie scolaire, tu ne parles que de ses enfants. Pour une question générale, tu réponds librement.`;
   }
   if (role === 'teacher') {
     return `${base}
-Tu aides l’enseignant sur ses classes, ses élèves, et l’usage de Kelassi.`;
+Tu aides l’enseignant : ses classes, ses élèves, Kelassi, et toute question générale utile pour enseigner.`;
   }
   return `${base}
-Tu aides la direction et le secrétariat sur toute l’école et tout le logiciel.`;
+Tu aides la direction et le secrétariat sur toute l’école, tout Kelassi, et toute question générale.`;
 }
 
 async function callLlm(system, context, message, history) {
-  const payload = JSON.stringify(context);
-  const userText = `DONNÉES (périmètre de l’utilisateur) :\n${payload}\n\nQUESTION :\n${message}`;
+  const aboutSchool = schoolishQuestion(message, context);
+  const compact = {
+    schoolName: context.schoolName,
+    year: context.year,
+    role: context.role,
+    paymentChannels: context.paymentChannels,
+    guide: context.guide
+  };
+  const payload = aboutSchool ? JSON.stringify(context) : JSON.stringify(compact);
+  const userText = aboutSchool
+    ? `SCHOOL_DATA (périmètre de l’utilisateur) :\n${payload}\n\nQUESTION :\n${message}`
+    : `QUESTION (réponds comme ChatGPT, de façon complète) :\n${message}\n\nContexte école (si utile) :\n${payload}`;
   const messages = [
     { role: 'system', content: system },
-    ...(Array.isArray(history) ? history.slice(-6) : []),
+    ...(Array.isArray(history) ? history.slice(-8) : []),
     { role: 'user', content: userText }
   ];
+  const maxTokens = 4096;
+  const temperature = aboutSchool ? 0.4 : 0.7;
 
   if (process.env.OPENAI_API_KEY) {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -612,11 +649,11 @@ async function callLlm(system, context, message, history) {
       },
       body: JSON.stringify({
         model: process.env.AI_MODEL || 'gpt-4o-mini',
-        temperature: 0.3,
-        max_tokens: 1400,
+        temperature,
+        max_tokens: maxTokens,
         messages
       }),
-      signal: AbortSignal.timeout(25000)
+      signal: AbortSignal.timeout(60000)
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error?.message || 'OpenAI a refusé la requête');
@@ -632,11 +669,11 @@ async function callLlm(system, context, message, history) {
       },
       body: JSON.stringify({
         model: process.env.AI_MODEL || 'llama-3.3-70b-versatile',
-        temperature: 0.3,
-        max_tokens: 1400,
+        temperature,
+        max_tokens: maxTokens,
         messages
       }),
-      signal: AbortSignal.timeout(25000)
+      signal: AbortSignal.timeout(60000)
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error?.message || 'Groq a refusé la requête');
@@ -653,11 +690,12 @@ async function callLlm(system, context, message, history) {
       },
       body: JSON.stringify({
         model: process.env.AI_MODEL || 'claude-3-5-haiku-latest',
-        max_tokens: 1400,
+        max_tokens: maxTokens,
+        temperature,
         system,
         messages: messages.filter((item) => item.role !== 'system')
       }),
-      signal: AbortSignal.timeout(25000)
+      signal: AbortSignal.timeout(60000)
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error?.message || 'Anthropic a refusé la requête');
@@ -672,9 +710,16 @@ async function callLlm(system, context, message, history) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts: [{ text: userText }] }]
+        contents: [
+          ...(Array.isArray(history) ? history.slice(-8).map((item) => ({
+            role: item.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: item.content }]
+          })) : []),
+          { role: 'user', parts: [{ text: userText }] }
+        ],
+        generationConfig: { temperature, maxOutputTokens: maxTokens }
       }),
-      signal: AbortSignal.timeout(25000)
+      signal: AbortSignal.timeout(60000)
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error?.message || 'Gemini a refusé la requête');
@@ -689,7 +734,7 @@ async function ask(db, session, year, message, history) {
   if (!text) {
     return { status: 400, body: { success: false, message: 'Écrivez une question.' } };
   }
-  if (text.length > 4000) {
+  if (text.length > 12000) {
     return { status: 400, body: { success: false, message: 'Question trop longue.' } };
   }
   if (!allowAsk(session.id)) {

@@ -16,7 +16,7 @@ function AiDesk() {
     <div>
       <div className="page-header">
         <h1>Kelassi IA</h1>
-        <p>Posez n’importe quelle question sur l’école, les personnes (élèves, profs, parents, personnel) et l’utilisation de Kelassi. Les notes et paiements restent officiels.</p>
+        <p>Posez n’importe quelle question : l’école, Kelassi, ou un sujet général comme avec ChatGPT. Les notes et paiements officiels ne sont jamais inventés.</p>
       </div>
       {error && <p className="error">{error}</p>}
       {desk && (

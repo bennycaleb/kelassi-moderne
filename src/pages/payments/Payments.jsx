@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Modal from '../../components/Modal';
+import MobileMoneyPay from '../../components/MobileMoneyPay';
 import { FEE_TYPES, PAYMENT_METHODS } from '../../constants';
 import { useSchool } from '../../context/SchoolContext';
 import { money } from '../../services/api';
@@ -33,6 +34,7 @@ function Payments() {
   const [situation, setSituation] = useState([]);
   const [totals, setTotals] = useState({ paid: 0, unpaid: 0 });
   const [tuitionAmount, setTuitionAmount] = useState(0);
+  const [paymentChannels, setPaymentChannels] = useState(null);
   const [students, setStudents] = useState([]);
   const [open, setOpen] = useState(false);
   const [settleFor, setSettleFor] = useState(null);
@@ -49,6 +51,7 @@ function Payments() {
     setSituation(paymentData.situation || []);
     setTotals(paymentData.totals || { paid: 0, unpaid: 0 });
     setTuitionAmount(Number(paymentData.tuitionAmount || 0));
+    setPaymentChannels(paymentData.paymentChannels || null);
     setStudents(studentData.students);
   }
 
@@ -136,6 +139,13 @@ function Payments() {
           Pour voir qui a payé ou qui doit encore, indiquez le montant de scolarité dans <Link to="/dashboard/settings">Paramètres</Link>.
         </div>
       )}
+      {paymentChannels?.hasAny
+        ? <MobileMoneyPay channels={paymentChannels} title="Numéros visibles par les parents" />
+        : (
+          <div className="credentials-box">
+            Ajoutez les numéros MTN MoMo et Airtel Money dans <Link to="/dashboard/settings">Paramètres</Link> : les parents les verront pour payer la scolarité.
+          </div>
+        )}
       {error && !open && !settleFor && <p className="error">{error}</p>}
 
       <div className="tabs">

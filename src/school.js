@@ -504,6 +504,20 @@ function tuitionExpected(db) {
   return Number(db.settings?.tuitionAmount || 0);
 }
 
+function paymentChannels(db) {
+  const settings = db.settings || {};
+  const momoNumber = String(settings.momoNumber || '').trim();
+  const airtelMoneyNumber = String(settings.airtelMoneyNumber || '').trim();
+  return {
+    momoName: String(settings.momoName || '').trim(),
+    momoNumber,
+    airtelMoneyName: String(settings.airtelMoneyName || '').trim(),
+    airtelMoneyNumber,
+    paymentInstructions: String(settings.paymentInstructions || '').trim(),
+    hasAny: Boolean(momoNumber || airtelMoneyNumber)
+  };
+}
+
 function tuitionOf(db, student, year) {
   const payments = (db.payments || []).filter((item) => item.studentId === student.id && inYear(item, year));
   const paid = payments.filter((item) => item.status === 'payé').reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -639,6 +653,7 @@ module.exports = {
   subjectAverages,
   paidPercent,
   tuitionExpected,
+  paymentChannels,
   tuitionOf,
   withTuition,
   endTimeOf,
