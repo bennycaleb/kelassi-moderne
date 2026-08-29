@@ -76,7 +76,8 @@ function SettingsPage() {
       </form>
       {preview.hasAny ? <MobileMoneyPay channels={preview} title="Aperçu côté parent" /> : null}
 
-      <p className="muted-line" style={{ marginTop: 16 }}>Kelassi IA répond à toute question (école et sujets généraux comme ChatGPT) dès qu’une clé <code>GROQ_API_KEY</code>, <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code> ou <code>GEMINI_API_KEY</code> est dans Render / .env.</p>
+      <p className="muted-line" style={{ marginTop: 16 }}>Sur Render, ajoutez <code>MONGODB_URI</code> (MongoDB Atlas, gratuit) pour que les comptes et l’école survivent aux mises à jour du site.</p>
+      <p className="muted-line">Kelassi IA répond à toute question dès qu’une clé <code>GROQ_API_KEY</code>, <code>OPENAI_API_KEY</code> ou <code>GEMINI_API_KEY</code> est dans Render / .env.</p>
     </div>
   );
 }

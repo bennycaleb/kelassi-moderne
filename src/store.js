@@ -1,9 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const persist = require('./persist');
 
-const DATA_FILE = path.join(__dirname, '..', 'database', 'kelassi.json');
 const CURRENT_YEAR = '2026-2027';
+let memory = null;
+
+function dataDir() {
+  return process.env.DATA_DIR || path.join(__dirname, '..', 'database');
+}
+
+function dataFile() {
+  return path.join(dataDir(), 'kelassi.json');
+}
+
+function sessionFile() {
+  return path.join(dataDir(), 'sessions.json');
+}
 
 function now() {
   return new Date().toISOString();
@@ -375,33 +388,110 @@ function migrate(raw) {
   return data;
 }
 
-function ensureFile() {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(seed(), null, 2));
+function writeDisk(data) {
+  fs.mkdirSync(dataDir(), { recursive: true });
+  fs.writeFileSync(dataFile(), JSON.stringify(data, null, 2));
+}
+
+function readDisk() {
+  try {
+    if (!fs.existsSync(dataFile())) return null;
+    return JSON.parse(fs.readFileSync(dataFile(), 'utf8'));
+  } catch {
+    return null;
   }
+}
+
+function hasAccounts(data) {
+  return Boolean(data && Array.isArray(data.users) && data.users.length);
+}
+
+function activate(raw) {
+  const migrated = migrate(raw && typeof raw === 'object' ? raw : seed());
+  migrated.schemaVersion = 4;
+  memory = migrated;
+  writeDisk(migrated);
+  return migrated;
+}
+
+async function boot() {
+  let remote = null;
+  try {
+    const ok = await persist.connect();
+    if (ok) remote = await persist.read('app');
+  } catch (error) {
+    if (persist.mongoUri()) {
+      console.error('Impossible de joindre MongoDB. Les comptes ne peuvent pas être chargés.', error.message);
+      throw error;
+    }
+    console.warn('MongoDB indisponible, fichier local uniquement :', error.message);
+  }
+
+  const disk = readDisk();
+  if (hasAccounts(remote)) {
+    activate(remote);
+  } else if (hasAccounts(disk)) {
+    activate(disk);
+    await persist.writeNow('app', memory);
+  } else {
+    activate(seed());
+    await persist.writeNow('app', memory);
+  }
+
+  const remoteSessions = persist.connected() ? await persist.read('sessions') : null;
+  if (remoteSessions && typeof remoteSessions === 'object') {
+    fs.mkdirSync(dataDir(), { recursive: true });
+    fs.writeFileSync(sessionFile(), JSON.stringify(remoteSessions, null, 2));
+  }
+  return memory;
 }
 
 function load() {
-  ensureFile();
-  try {
-    const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    const migrated = migrate(raw);
-    if (raw.schemaVersion !== 4) {
-      migrated.schemaVersion = 4;
-      fs.writeFileSync(DATA_FILE, JSON.stringify(migrated, null, 2));
-    }
-    return migrated;
-  } catch {
-    const fresh = seed();
-    fs.writeFileSync(DATA_FILE, JSON.stringify(fresh, null, 2));
-    return fresh;
+  if (memory) return memory;
+  const disk = readDisk();
+  if (hasAccounts(disk)) {
+    memory = migrate(disk);
+    memory.schemaVersion = 4;
+    return memory;
   }
+  return activate(seed());
 }
 
 function save(data) {
-  ensureFile();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  memory = data;
+  writeDisk(data);
+  persist.queue('app', data);
 }
 
-module.exports = { load, save, id, now, today, CURRENT_YEAR, cycleIdFromLevel, defaultCycles, defaultEvaluationTypes };
+function readSessionMap() {
+  try {
+    return new Map(Object.entries(JSON.parse(fs.readFileSync(sessionFile(), 'utf8'))));
+  } catch {
+    return new Map();
+  }
+}
+
+function saveSessions(map) {
+  const obj = Object.fromEntries(map);
+  fs.mkdirSync(dataDir(), { recursive: true });
+  fs.writeFileSync(sessionFile(), JSON.stringify(obj, null, 2));
+  persist.queue('sessions', obj);
+}
+
+module.exports = {
+  load,
+  save,
+  boot,
+  dataDir,
+  persistMode: persist.mode,
+  flush: persist.flush,
+  readSessionMap,
+  saveSessions,
+  id,
+  now,
+  today,
+  CURRENT_YEAR,
+  cycleIdFromLevel,
+  defaultCycles,
+  defaultEvaluationTypes
+};

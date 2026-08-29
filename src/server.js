@@ -5,7 +5,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { load: loadAll, save: saveAll, id, now, today, cycleIdFromLevel } = require('./store');
+const { load: loadAll, save: saveAll, boot, dataDir, persistMode, flush, readSessionMap, saveSessions, id, now, today, cycleIdFromLevel } = require('./store');
 const school = require('./school');
 const tenant = require('./tenant');
 const kelassiAi = require('./ai');
@@ -14,7 +14,6 @@ const app = express();
 const PORT = Number(process.env.PORT || 5001);
 const HOST = process.env.HOST || '0.0.0.0';
 const DIST_DIR = path.join(__dirname, '..', 'dist');
-const SESSION_FILE = path.join(__dirname, '..', 'database', 'sessions.json');
 const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant'];
 
 function allowedOrigins() {
@@ -31,20 +30,11 @@ function allowedOrigins() {
   ];
 }
 
-function loadSessionMap() {
-  try {
-    return new Map(Object.entries(JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'))));
-  } catch {
-    return new Map();
-  }
-}
-
 function persistSessions() {
-  fs.mkdirSync(path.dirname(SESSION_FILE), { recursive: true });
-  fs.writeFileSync(SESSION_FILE, JSON.stringify(Object.fromEntries(sessions), null, 2));
+  saveSessions(sessions);
 }
 
-const sessions = loadSessionMap();
+let sessions = new Map();
 
 app.set('trust proxy', 1);
 app.use(cors({
@@ -175,7 +165,9 @@ function pick(body, fields, fallback = {}) {
   return result;
 }
 
-const UPLOAD_DIR = path.join(__dirname, '..', 'database', 'uploads');
+function uploadDir() {
+  return path.join(dataDir(), 'uploads');
+}
 const ALLOWED_MIME = [
   'application/pdf',
   'image/jpeg',
@@ -221,19 +213,19 @@ function saveUpload(prefix, fileName, dataUrl) {
   }
   const ext = path.extname(fileName || '') || (mime.includes('pdf') ? '.pdf' : '.bin');
   const storedName = `${prefix}_${crypto.randomBytes(8).toString('hex')}${ext}`;
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  fs.writeFileSync(path.join(UPLOAD_DIR, storedName), Buffer.from(match[2], 'base64'));
+  fs.mkdirSync(uploadDir(), { recursive: true });
+  fs.writeFileSync(path.join(uploadDir(), storedName), Buffer.from(match[2], 'base64'));
   return { storedName, originalName: fileName || storedName, mime };
 }
 
 function removeUpload(storedName) {
   if (!storedName) return;
-  const filePath = path.join(UPLOAD_DIR, path.basename(storedName));
+  const filePath = path.join(uploadDir(), path.basename(storedName));
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
 function sendUpload(res, storedName, originalName, mime) {
-  const filePath = path.join(UPLOAD_DIR, path.basename(storedName || ''));
+  const filePath = path.join(uploadDir(), path.basename(storedName || ''));
   if (!storedName || !fs.existsSync(filePath)) {
     return res.status(404).json({ success: false, message: 'Fichier introuvable' });
   }
@@ -251,7 +243,7 @@ function canManageWork(db, session, work) {
 app.get('/api/health', (req, res) => res.json({
   success: true,
   message: 'Serveur Kelassi Moderne opérationnel',
-  database: 'local_json',
+  database: persistMode(),
   frontend: fs.existsSync(path.join(DIST_DIR, 'index.html'))
 }));
 
@@ -2027,10 +2019,31 @@ app.use((req, res) => {
   });
 });
 
-const server = app.listen(PORT, HOST, () => {
-  console.log(`SERVEUR KELASSI MODERNE — http://localhost:${PORT} (${HOST})`);
-});
+async function start() {
+  await boot();
+  sessions = readSessionMap();
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`SERVEUR KELASSI MODERNE — http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT} (${HOST})`);
+    console.log(`Données : ${persistMode()}`);
+  });
+  server.on('error', (error) => console.error('Erreur serveur :', error));
 
-server.on('error', (error) => console.error('Erreur serveur :', error));
+  async function shutdown() {
+    try {
+      await flush();
+    } catch (error) {
+      console.error('Flush données :', error.message);
+    }
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 8000).unref();
+  }
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}
+
+start().catch((error) => {
+  console.error('Démarrage impossible :', error.message);
+  process.exit(1);
+});
 
 
