@@ -2,6 +2,7 @@ const school = require('./school');
 
 const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant'];
 const askBuckets = new Map();
+let groqWorkingModel = '';
 
 function fold(value) {
   return String(value || '')
@@ -668,11 +669,11 @@ async function callLlm(system, context, message, history) {
   const groqKey = envKey('GROQ_API_KEY');
   if (groqKey) {
     const models = [...new Set([
+      groqWorkingModel,
       envKey('AI_MODEL'),
       'llama-3.1-8b-instant',
-      'openai/gpt-oss-20b',
-      'llama-3.3-70b-versatile'
-    ].filter(Boolean))];
+      'openai/gpt-oss-20b'
+    ].filter((item) => item && !/70b-versatile/i.test(item)))];
     let lastError = 'Groq a refusé la requête';
     for (const model of models) {
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -684,20 +685,24 @@ async function callLlm(system, context, message, history) {
         body: JSON.stringify({
           model,
           temperature,
-          max_tokens: maxTokens,
+          max_tokens: Math.min(maxTokens, 2048),
           messages
         }),
         signal: AbortSignal.timeout(60000)
       });
       const data = await response.json().catch(() => ({}));
       if (response.ok) {
-        const content = data.choices?.[0]?.message?.content?.trim();
-        if (content) return content;
+        const content = String(data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning || '').trim();
+        if (content) {
+          groqWorkingModel = model;
+          return content;
+        }
         lastError = 'Groq a renvoyé une réponse vide';
         continue;
       }
       lastError = data.error?.message || `Groq a refusé le modèle ${model}`;
       console.error(`Kelassi IA / Groq (${model}) :`, lastError);
+      if (/does not exist|do not have access|decommissioned/i.test(lastError)) continue;
     }
     throw new Error(lastError);
   }
