@@ -10,13 +10,17 @@ function fold(value) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function envKey(name) {
+  return String(process.env[name] || '').trim();
+}
+
 function llmConfigured() {
   return Boolean(
-    process.env.OPENAI_API_KEY
-    || process.env.GROQ_API_KEY
-    || process.env.ANTHROPIC_API_KEY
-    || process.env.GEMINI_API_KEY
-    || process.env.GOOGLE_API_KEY
+    envKey('OPENAI_API_KEY')
+    || envKey('GROQ_API_KEY')
+    || envKey('ANTHROPIC_API_KEY')
+    || envKey('GEMINI_API_KEY')
+    || envKey('GOOGLE_API_KEY')
   );
 }
 
@@ -640,15 +644,16 @@ async function callLlm(system, context, message, history) {
   const maxTokens = 4096;
   const temperature = aboutSchool ? 0.4 : 0.7;
 
-  if (process.env.OPENAI_API_KEY) {
+  const openaiKey = envKey('OPENAI_API_KEY');
+  if (openaiKey) {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${openaiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: process.env.AI_MODEL || 'gpt-4o-mini',
+        model: envKey('AI_MODEL') || 'gpt-4o-mini',
         temperature,
         max_tokens: maxTokens,
         messages
@@ -660,36 +665,54 @@ async function callLlm(system, context, message, history) {
     return data.choices?.[0]?.message?.content?.trim();
   }
 
-  if (process.env.GROQ_API_KEY) {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: process.env.AI_MODEL || 'llama-3.3-70b-versatile',
-        temperature,
-        max_tokens: maxTokens,
-        messages
-      }),
-      signal: AbortSignal.timeout(60000)
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Groq a refusé la requête');
-    return data.choices?.[0]?.message?.content?.trim();
+  const groqKey = envKey('GROQ_API_KEY');
+  if (groqKey) {
+    const models = [...new Set([
+      envKey('AI_MODEL'),
+      'llama-3.1-8b-instant',
+      'openai/gpt-oss-20b',
+      'llama-3.3-70b-versatile'
+    ].filter(Boolean))];
+    let lastError = 'Groq a refusé la requête';
+    for (const model of models) {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${groqKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_tokens: maxTokens,
+          messages
+        }),
+        signal: AbortSignal.timeout(60000)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        const content = data.choices?.[0]?.message?.content?.trim();
+        if (content) return content;
+        lastError = 'Groq a renvoyé une réponse vide';
+        continue;
+      }
+      lastError = data.error?.message || `Groq a refusé le modèle ${model}`;
+      console.error(`Kelassi IA / Groq (${model}) :`, lastError);
+    }
+    throw new Error(lastError);
   }
 
-  if (process.env.ANTHROPIC_API_KEY) {
+  const anthropicKey = envKey('ANTHROPIC_API_KEY');
+  if (anthropicKey) {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': anthropicKey,
         'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: process.env.AI_MODEL || 'claude-3-5-haiku-latest',
+        model: envKey('AI_MODEL') || 'claude-3-5-haiku-latest',
         max_tokens: maxTokens,
         temperature,
         system,
@@ -702,9 +725,9 @@ async function callLlm(system, context, message, history) {
     return (data.content || []).map((item) => item.text || '').join('\n').trim();
   }
 
-  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  const geminiKey = envKey('GEMINI_API_KEY') || envKey('GOOGLE_API_KEY');
   if (geminiKey) {
-    const model = process.env.AI_MODEL || 'gemini-2.0-flash';
+    const model = envKey('AI_MODEL') || 'gemini-2.0-flash';
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -750,8 +773,12 @@ async function ask(db, session, year, message, history) {
         answer = generated;
         mode = 'llm';
       }
-    } catch {
+    } catch (error) {
+      console.error('Kelassi IA :', error.message);
       mode = 'local';
+      if (!schoolishQuestion(text, context)) {
+        answer = `Je n’ai pas pu joindre le moteur IA (${error.message}). Vérifiez GROQ_API_KEY dans Render, puis réessayez.`;
+      }
     }
   }
   return {
