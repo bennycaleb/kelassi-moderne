@@ -6,7 +6,7 @@ function TeacherLayout({ user, logout, children }) {
   return (
     <div className="admin-layout">
       <aside className="sidebar">
-        <div className="sidebar-logo"><div className="logo-icon">K</div><div className="logo-text">Kelassi</div></div>
+        <div className="sidebar-logo"><div className="logo-icon">K</div><div className="logo-text">Kelassi Moderne</div></div>
         <nav>
           <NavLink to="/teacher" end>Dashboard</NavLink>
           <NavLink to="/teacher/ai">Kelassi IA</NavLink>

@@ -6,7 +6,7 @@ function ParentLayout({ user, logout, children }) {
   return (
     <div className="admin-layout">
       <aside className="sidebar">
-        <div className="sidebar-logo"><div className="logo-icon">K</div><div className="logo-text">Kelassi</div></div>
+        <div className="sidebar-logo"><div className="logo-icon">K</div><div className="logo-text">Kelassi Moderne</div></div>
         <nav>
           <NavLink to="/parent" end>Mes enfants</NavLink>
           <NavLink to="/parent/attendance">Présences</NavLink>

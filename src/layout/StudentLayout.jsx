@@ -6,7 +6,7 @@ function StudentLayout({ user, logout, children }) {
   return (
     <div className="admin-layout">
       <aside className="sidebar">
-        <div className="sidebar-logo"><div className="logo-icon">K</div><div className="logo-text">Kelassi</div></div>
+        <div className="sidebar-logo"><div className="logo-icon">K</div><div className="logo-text">Kelassi Moderne</div></div>
         <nav>
           <NavLink to="/student" end>Mon tableau</NavLink>
           <NavLink to="/student/courses">Cours & devoirs</NavLink>

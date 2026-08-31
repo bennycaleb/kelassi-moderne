@@ -8,8 +8,8 @@ function OwnerLayout({ user, logout, children }) {
         <div className="sidebar-logo">
           <div className="logo-icon">K</div>
           <div className="sidebar-brand">
-            <div className="logo-text">Kelassi</div>
-            <small className="sidebar-year">Entreprise</small>
+            <div className="logo-text">Kelassi Moderne</div>
+            <small className="sidebar-year">Back-office</small>
           </div>
         </div>
         <nav className="sidebar-nav">
@@ -27,7 +27,7 @@ function OwnerLayout({ user, logout, children }) {
       <div className="admin-content">
         <header className="topbar">
           <h3>Espace entreprise — {user?.name || user?.email}</h3>
-          <div className="user-area"><span>Kelassi</span></div>
+          <div className="user-area"><span>Kelassi Moderne</span></div>
         </header>
         <section className="content">{children}</section>
       </div>

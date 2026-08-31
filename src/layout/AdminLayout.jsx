@@ -59,7 +59,7 @@ function AdminLayout({ user, logout, children }) {
         <div className="sidebar-logo">
           <div className="logo-icon">K</div>
           <div className="sidebar-brand">
-            <div className="logo-text">{settings?.schoolName || 'Kelassi'}</div>
+            <div className="logo-text">{settings?.schoolName || 'Kelassi Moderne'}</div>
             <small className="sidebar-year">{year}</small>
           </div>
         </div>

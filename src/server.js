@@ -1935,6 +1935,8 @@ app.get('/api/documents/data', requireAuth, (req, res) => {
       return res.status(403).json({ success: false, message: 'Accès refusé' });
     }
   }
+  const classId = classroom?.id || student?.classId;
+  const classRow = classId ? db.classes.find((item) => item.id === classId) : null;
   return res.json({
     success: true,
     type,
@@ -1942,7 +1944,8 @@ app.get('/api/documents/data', requireAuth, (req, res) => {
     year,
     student: student ? school.studentFiche(db, student, year) : null,
     payment: payment ? school.withPayment(db, payment) : null,
-    class: classroom || null,
+    class: classRow ? { ...classRow, ...school.classStats(db, classRow, year) } : null,
+    classSubjectAverages: classId ? school.classSubjectAverages(db, classId, year) : {},
     students: classroom
       ? db.students
         .filter((item) => item.classId === classroom.id && school.inYear(item, year))

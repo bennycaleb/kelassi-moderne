@@ -489,8 +489,38 @@ function subjectAverages(grades) {
   return Object.entries(groups).map(([subject, items]) => ({
     subject,
     average: averageOf(items),
-    coefficient: items[0]?.coefficient || 1
+    coefficient: items[0]?.coefficient || 1,
+    comment: items.map((item) => item.comment || item.appreciation).filter(Boolean).at(-1) || ''
   }));
+}
+
+function subjectComment(average) {
+  if (average >= 16) return 'Excellente maîtrise des notions.';
+  if (average >= 14) return 'Très bonne maîtrise des notions.';
+  if (average >= 12) return 'Travail sérieux.';
+  if (average >= 10) return 'Des bases acquises, à approfondir.';
+  if (average > 0) return 'Des difficultés. Un effort soutenu est nécessaire.';
+  return '—';
+}
+
+function classSubjectAverages(db, classId, year) {
+  const students = db.students.filter((item) => item.classId === classId && inYear(item, year));
+  const groups = {};
+  students.forEach((student) => {
+    const grades = db.grades
+      .filter((item) => item.studentId === student.id && inYear(item, year))
+      .map((item) => withGrade(db, item));
+    subjectAverages(grades).forEach((row) => {
+      if (!row.average) return;
+      if (!groups[row.subject]) groups[row.subject] = [];
+      groups[row.subject].push(row.average);
+    });
+  });
+  const result = {};
+  Object.entries(groups).forEach(([subject, values]) => {
+    result[subject] = Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100;
+  });
+  return result;
 }
 
 function paidPercent(payments) {
@@ -592,7 +622,10 @@ function studentFiche(db, student, year) {
   return {
     student: withStudent(db, student),
     grades,
-    subjects: subjectAverages(grades),
+    subjects: subjectAverages(grades).map((row) => ({
+      ...row,
+      comment: row.comment || subjectComment(row.average)
+    })),
     average,
     ranking: rank,
     appreciation: appreciation(average),
@@ -651,6 +684,8 @@ module.exports = {
   decision,
   classStats,
   subjectAverages,
+  classSubjectAverages,
+  subjectComment,
   paidPercent,
   tuitionExpected,
   paymentChannels,
