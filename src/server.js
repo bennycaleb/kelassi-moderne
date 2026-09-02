@@ -89,14 +89,18 @@ function createSession(user) {
 
 function loginWithEmail(email, password) {
   const normalized = String(email || '').trim().toLowerCase();
-  const secret = String(password || '');
+  const secret = String(password || '').trim();
   if (!normalized || !secret) {
     return { status: 400, body: { success: false, message: 'Email et mot de passe obligatoires' } };
   }
   const db = loadAll();
-  const user = db.users.find((item) => item.email.toLowerCase() === normalized);
-  if (!user || user.password !== secret) {
-    return { status: 401, body: { success: false, message: 'Identifiants invalides' } };
+  const matches = (db.users || []).filter((item) => String(item.email || '').trim().toLowerCase() === normalized);
+  if (!matches.length) {
+    return { status: 401, body: { success: false, message: 'Aucun compte avec cet email. Utilisez l’email affiché à la création, pas le nom.' } };
+  }
+  const user = matches.find((item) => String(item.password || '').trim() === secret);
+  if (!user) {
+    return { status: 401, body: { success: false, message: 'Mot de passe incorrect. Recopiez celui affiché à la création (majuscules comprises).' } };
   }
   if (user.role !== 'owner') {
     const found = tenant.schoolById(db, user.schoolId);
@@ -421,8 +425,8 @@ app.post('/api/students', requireStaff, (req, res) => {
   }
   const db = load(req);
   const year = school.yearOf(req, db);
-  if (db.users.some((item) => item.email.toLowerCase() === email)) {
-    return res.status(409).json({ success: false, message: 'Cet email a déjà un compte' });
+  if (loadAll().users.some((item) => String(item.email || '').trim().toLowerCase() === email)) {
+    return res.status(409).json({ success: false, message: 'Cet email a déjà un compte. Choisissez un autre email.' });
   }
   const classroom = school.classById(db, req.body.classId) || db.classes.find((item) => item.name === req.body.className);
   const password = String(req.body.password || '').trim() || generatePassword('Eleve');
@@ -450,7 +454,7 @@ app.post('/api/students', requireStaff, (req, res) => {
     status: 'actif',
     createdAt: now()
   };
-  db.users.push({ id: userId, email, password, role: 'student', name: `${firstName} ${lastName}`, createdAt: now() });
+  db.users.push({ id: userId, email, password, role: 'student', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
   db.students.push(student);
   school.syncFamilyLinks(db, { student });
   save(req, db);
@@ -575,7 +579,9 @@ app.post('/api/teachers', requireStaff, (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   if (!firstName || !lastName || !email) return res.status(400).json({ success: false, message: 'Prénom, nom et email obligatoires' });
   const db = load(req);
-  if (db.users.some((item) => item.email.toLowerCase() === email)) return res.status(409).json({ success: false, message: 'Cet email a déjà un compte' });
+  if (loadAll().users.some((item) => String(item.email || '').trim().toLowerCase() === email)) {
+    return res.status(409).json({ success: false, message: 'Cet email a déjà un compte. Choisissez un autre email.' });
+  }
   const password = String(req.body.password || '').trim() || generatePassword('Prof');
   const userId = id('u');
   const subjectIds = Array.isArray(req.body.subjectIds) ? req.body.subjectIds : (req.body.subject ? [db.subjects.find((item) => item.name === req.body.subject)?.id].filter(Boolean) : []);
@@ -597,7 +603,7 @@ app.post('/api/teachers', requireStaff, (req, res) => {
     year: school.yearOf(req, db),
     createdAt: now()
   };
-  db.users.push({ id: userId, email, password, role: 'teacher', name: `${firstName} ${lastName}`, createdAt: now() });
+  db.users.push({ id: userId, email, password, role: 'teacher', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
   db.teachers.push(teacher);
   save(req, db);
   return res.status(201).json({ success: true, teacher: school.withTeacher(db, teacher), credentials: { email, password } });
@@ -1481,7 +1487,9 @@ app.post('/api/parents', requireStaff, (req, res) => {
   const firstName = String(req.body.firstName || '').trim();
   const lastName = String(req.body.lastName || '').trim();
   if (!email || !firstName || !lastName) return res.status(400).json({ success: false, message: 'Nom et email obligatoires' });
-  if (db.users.some((item) => item.email.toLowerCase() === email)) return res.status(409).json({ success: false, message: 'Cet email a déjà un compte' });
+  if (loadAll().users.some((item) => String(item.email || '').trim().toLowerCase() === email)) {
+    return res.status(409).json({ success: false, message: 'Cet email a déjà un compte. Choisissez un autre email.' });
+  }
   const password = String(req.body.password || '').trim() || generatePassword('Parent');
   const userId = id('u');
   const parent = {
@@ -1494,7 +1502,7 @@ app.post('/api/parents', requireStaff, (req, res) => {
     childrenIds: asIdList(req.body.childrenIds),
     createdAt: now()
   };
-  db.users.push({ id: userId, email, password, role: 'parent', name: `${firstName} ${lastName}`, createdAt: now() });
+  db.users.push({ id: userId, email, password, role: 'parent', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
   db.parents.push(parent);
   school.syncFamilyLinks(db, { parent });
   save(req, db);

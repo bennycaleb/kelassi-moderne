@@ -461,6 +461,7 @@ function save(data) {
   memory = data;
   writeDisk(data);
   persist.queue('app', data);
+  persist.flush().catch((error) => console.error('Sauvegarde MongoDB :', error.message));
 }
 
 function readSessionMap() {

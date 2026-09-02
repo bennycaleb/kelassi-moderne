@@ -72,8 +72,17 @@ function read(req) {
 }
 
 function write(req, scoped) {
-  if (!req || !req.session || req.session.role === 'owner' || !req.session.schoolId) {
+  if (!req?.session) {
     saveAll(scoped);
+    return;
+  }
+  if (req.session.role === 'owner') return;
+  if (!req.session.schoolId) {
+    const ownerUser = loadAll().users.find((item) => item.id === req.session.id);
+    if (ownerUser?.schoolId) req.session.schoolId = ownerUser.schoolId;
+  }
+  if (!req.session.schoolId) {
+    console.error('Écriture annulée : aucune école liée à la session');
     return;
   }
   const schoolId = req.session.schoolId;
@@ -108,8 +117,8 @@ function createTenant({ name, city, address, phone, adminName, adminEmail, admin
   if (!schoolName) return { status: 400, body: { success: false, message: 'Le nom de l’école est obligatoire' } };
   if (!email || !password) return { status: 400, body: { success: false, message: 'Email et mot de passe de l’admin obligatoires' } };
   if (password.length < 6) return { status: 400, body: { success: false, message: 'Le mot de passe admin doit faire au moins 6 caractères' } };
-  if (db.users.some((user) => user.email.toLowerCase() === email)) {
-    return { status: 400, body: { success: false, message: 'Cet email est déjà utilisé' } };
+  if (db.users.some((user) => String(user.email || '').trim().toLowerCase() === email)) {
+    return { status: 400, body: { success: false, message: 'Cet email est déjà utilisé. Choisissez un autre email.' } };
   }
   const schoolId = id('school');
   const adminId = id('u');
