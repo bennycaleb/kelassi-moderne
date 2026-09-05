@@ -88,10 +88,17 @@ function TeacherProfile() {
         <div className="panel">
           <p>Taux de présence sur les classes : {presenceRate || 0} %</p>
           <table>
-            <thead><tr><th>Date</th><th>Étudiant</th><th>Classe</th><th>Statut</th></tr></thead>
+            <thead><tr><th>Date</th><th>Étudiant</th><th>Classe</th><th>Statut</th><th>Entrée</th><th>Sortie</th></tr></thead>
             <tbody>
               {(attendance || []).slice(0, 80).map((item) => (
-                <tr key={item.id}><td>{item.date}</td><td>{item.studentName}</td><td>{item.className}</td><td><PresenceMark status={item.status} /></td></tr>
+                <tr key={item.id}>
+                  <td>{item.date}</td>
+                  <td>{item.studentName}</td>
+                  <td>{item.className}</td>
+                  <td><PresenceMark status={item.status} /></td>
+                  <td>{item.arrivedAtLabel || '—'}</td>
+                  <td>{item.leftAtLabel || '—'}</td>
+                </tr>
               ))}
             </tbody>
           </table>

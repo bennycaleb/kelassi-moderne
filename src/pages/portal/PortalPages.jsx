@@ -178,7 +178,13 @@ function ChildFiche({ fiche }) {
           <h3>📍 Aujourd’hui</h3>
           <p>
             {todayRecord
-              ? <><PresenceMark status={todayRecord.status} /> {todayRecord.status}{todayRecord.method === 'facial' ? ' (scan visage)' : ''}</>
+              ? (
+                <>
+                  <PresenceMark status={todayRecord.status} />
+                  {todayRecord.punchLine ? ` · ${todayRecord.punchLine}` : todayRecord.status}
+                  {todayRecord.method === 'facial' ? ' (scan visage)' : ''}
+                </>
+              )
               : <b>Pas encore d’appel</b>}
           </p>
         </div>
@@ -192,7 +198,12 @@ function ChildFiche({ fiche }) {
           <h2>Présences</h2>
           {recentAttendance.length
             ? recentAttendance.map((item) => (
-              <p key={item.id}>{item.date} — <PresenceMark status={item.status} /> {item.status}{item.method === 'facial' ? ' (reconnaissance faciale)' : ''}{item.justified ? ' (justifié)' : ''}</p>
+              <p key={item.id}>
+                {item.date} — <PresenceMark status={item.status} />
+                {item.punchLine ? ` · ${item.punchLine}` : ` ${item.status}`}
+                {item.method === 'facial' ? ' (reconnaissance faciale)' : ''}
+                {item.justified ? ' (justifié)' : ''}
+              </p>
             ))
             : <p>Aucune présence enregistrée pour le moment.</p>}
         </div>
@@ -328,7 +339,8 @@ export function StudentAbsences({ title = '🕐 Mes absences' }) {
         {items.length === 0 ? <p>Aucune présence enregistrée pour le moment.</p> : items.map((item) => (
           <p key={item.id}>
             {item.date} — {item.studentName ? `${item.studentName} · ` : ''}
-            <PresenceMark status={item.status} /> {item.status}
+            <PresenceMark status={item.status} />
+            {item.punchLine ? ` · ${item.punchLine}` : ` ${item.status}`}
             {item.method === 'facial' ? ' (reconnaissance faciale)' : ''}
             {item.justified ? ' (justifié)' : ''}
           </p>

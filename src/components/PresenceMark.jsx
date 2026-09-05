@@ -2,6 +2,7 @@ import React from 'react';
 
 const LABELS = {
   présent: { icon: '🟢', label: 'Présent', className: 'present' },
+  arrivé: { icon: '🔵', label: 'Arrivé', className: 'arrived' },
   absent: { icon: '🔴', label: 'Absent', className: 'absent' },
   retard: { icon: '🟡', label: 'Retard', className: 'late' }
 };

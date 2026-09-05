@@ -89,15 +89,20 @@ function FaceAttendance() {
           if (match) {
             const studentId = match.student.id;
             const last = cooldownRef.current[studentId] || 0;
-            if (Date.now() - last > 8000) {
+            if (Date.now() - last > 12000) {
               cooldownRef.current[studentId] = Date.now();
               const result = await api('/api/attendance/face', {
                 method: 'POST',
                 body: { classId, date, studentId }
               });
-              setLastMatch({ ...match.student, at: new Date().toLocaleTimeString('fr-FR') });
+              setLastMatch({
+                ...match.student,
+                at: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                action: result.action,
+                message: result.message
+              });
               setRecords(result.attendance || []);
-              setSummary(result.summary || summary);
+              if (result.summary) setSummary(result.summary);
               setStatus(result.message);
             }
           } else {
@@ -116,7 +121,7 @@ function FaceAttendance() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Reconnaissance faciale</h1>
-          <p>Chaque élève passe devant la caméra. Dès qu’il est reconnu, sa présence est marquée. Visible ensuite par le professeur, l’admin et le parent.</p>
+          <p>Premier passage = heure d’arrivée. Deuxième passage à la sortie = heure de départ et statut Présent. Le parent voit les deux heures.</p>
         </div>
         {running
           ? <button type="button" className="btn btn-danger" onClick={stopScan}>Arrêter le scan</button>
@@ -141,7 +146,7 @@ function FaceAttendance() {
         </div>
         <div className="form-field">
           <label>Présents aujourd’hui</label>
-          <p>🟢 {summary.present} · 🔴 {summary.absent} · 🟡 {summary.late}</p>
+          <p>🟢 {summary.present || 0} présents · 🔵 {summary.arrived || 0} arrivés · 🔴 {summary.absent || 0} · 🟡 {summary.late || 0}</p>
         </div>
       </div>
 
@@ -155,7 +160,7 @@ function FaceAttendance() {
                 <Avatar src={lastMatch.photo} name={lastMatch.firstName} size="profile" />
                 <div>
                   <h3>{lastMatch.lastName} {lastMatch.firstName}</h3>
-                  <p>Présent à {lastMatch.at}</p>
+                  <p>{lastMatch.action === 'sortie' ? 'Sortie — présent au cours' : lastMatch.action === 'arrivée' ? 'Arrivée enregistrée' : lastMatch.message || `Scan à ${lastMatch.at}`}</p>
                 </div>
               </div>
             )}
@@ -164,12 +169,14 @@ function FaceAttendance() {
         <div className="panel">
           <h2>Présences du jour</h2>
           <table>
-            <thead><tr><th>Étudiant</th><th>Statut</th><th>Mode</th></tr></thead>
+            <thead><tr><th>Étudiant</th><th>Statut</th><th>Entrée</th><th>Sortie</th><th>Mode</th></tr></thead>
             <tbody>
               {records.map((item) => (
                 <tr key={item.id}>
                   <td>{item.studentName}</td>
                   <td><PresenceMark status={item.status} /></td>
+                  <td>{item.arrivedAtLabel || '—'}</td>
+                  <td>{item.leftAtLabel || '—'}</td>
                   <td>{item.method === 'facial' ? 'Visage' : 'Manuel'}</td>
                 </tr>
               ))}

@@ -1193,6 +1193,10 @@ a.class-card {
   font-size: 13px;
 }
 
+.presence-mark.arrived {
+  color: #2563eb;
+}
+
 .slot-card {
   background: #eff6ff;
   border-radius: 10px;

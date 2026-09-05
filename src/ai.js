@@ -365,7 +365,7 @@ const SYSTEM_GUIDE = [
   { keys: ['classe'], text: 'Classes : menu Classes. Ouvrez une classe pour la liste (rang, moyenne, scolarité), l’emploi du temps et « Générer les bulletins ».' },
   { keys: ['matiere', 'cours'], text: 'Matières puis Cours : un cours relie une matière, une classe et un enseignant. Sans cours, on ne peut pas saisir les notes.' },
   { keys: ['emploi', 'horaire', 'edt'], text: 'Emploi du temps : menu Emploi du temps. Visible aussi par l’élève et le parent.' },
-  { keys: ['appel', 'presence', 'absence', 'retard', 'visage', 'face'], text: 'Présences : menu Présences (appel manuel) ou Scan visage. L’élève voit Mes absences, le parent voit Présences.' },
+  { keys: ['appel', 'presence', 'absence', 'retard', 'visage', 'face'], text: 'Scan visage : premier passage = heure d’arrivée (pas encore présent). Deuxième passage à la sortie = heure de départ et statut Présent. Le parent voit les deux heures. L’appel manuel reste possible dans Présences.' },
   { keys: ['note', 'moyenne', 'evaluation', 'coefficient', 'notation'], text: 'Notes : menu Notes (grille). Les moyennes et le rang (1er, 2ème…) se calculent tout seuls. Règles de notation et Évaluations définissent les barèmes.' },
   { keys: ['rang', 'classement', 'premier'], text: 'Le rang est calculé par classe, moyenne décroissante : 1er, 2ème… Les ex æquo ont le même rang. Visible sur la classe, la fiche, le bulletin et les portails.' },
   { keys: ['bulletin', 'document', 'carte', 'certificat', 'recu', 'pdf'], text: 'Documents : menu Documents, ou fiche élève, ou classe → Générer les bulletins. Carte d’étudiant, reçu de paiement, certificats. Signature du premier responsable dans Paramètres.' },

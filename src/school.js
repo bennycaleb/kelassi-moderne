@@ -231,12 +231,57 @@ function withSlot(db, slot) {
   };
 }
 
+function clockLabel(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+  const text = String(value);
+  return /^\d{2}:\d{2}/.test(text) ? text.slice(0, 5) : '';
+}
+
+function punchLine(item) {
+  const arrived = item?.arrivedAtLabel || clockLabel(item?.arrivedAt);
+  const left = item?.leftAtLabel || clockLabel(item?.leftAt);
+  if (arrived && left) return `Entrée ${arrived} · Sortie ${left}`;
+  if (arrived) return `Entrée ${arrived} — en cours`;
+  return '';
+}
+
+const MIN_FACE_EXIT_MS = 45 * 1000;
+
+function applyFacePunch(existing, stamp, minExitMs = MIN_FACE_EXIT_MS) {
+  if (!existing || !existing.arrivedAt) {
+    return {
+      action: 'arrivée',
+      patch: { status: 'arrivé', arrivedAt: stamp, leftAt: '', method: 'facial', recognizedAt: stamp }
+    };
+  }
+  if (existing.leftAt) {
+    return { action: 'déjà_sorti', patch: null };
+  }
+  const elapsed = new Date(stamp).getTime() - new Date(existing.arrivedAt).getTime();
+  if (elapsed < minExitMs) {
+    return { action: 'trop_tôt', waitSeconds: Math.ceil((minExitMs - elapsed) / 1000), patch: null };
+  }
+  return {
+    action: 'sortie',
+    patch: { status: 'présent', leftAt: stamp, method: 'facial', recognizedAt: stamp }
+  };
+}
+
 function withAttendance(db, item) {
   const student = studentById(db, item.studentId);
+  const arrivedAtLabel = clockLabel(item.arrivedAt);
+  const leftAtLabel = clockLabel(item.leftAt);
   return {
     ...item,
     studentName: fullName(student),
-    className: classNameOf(db, student)
+    className: classNameOf(db, student),
+    arrivedAtLabel,
+    leftAtLabel,
+    punchLine: punchLine({ ...item, arrivedAtLabel, leftAtLabel })
   };
 }
 
@@ -694,6 +739,10 @@ module.exports = {
   endTimeOf,
   withSlot,
   withAttendance,
+  clockLabel,
+  punchLine,
+  applyFacePunch,
+  MIN_FACE_EXIT_MS,
   parentsOf,
   linkedStudentIds,
   syncFamilyLinks,

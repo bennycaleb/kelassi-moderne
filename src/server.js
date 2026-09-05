@@ -911,6 +911,7 @@ app.get('/api/attendance', requireAuth, (req, res) => {
   }
   const summary = {
     present: records.filter((item) => item.status === 'présent').length,
+    arrived: records.filter((item) => item.status === 'arrivé').length,
     absent: records.filter((item) => item.status === 'absent').length,
     late: records.filter((item) => item.status === 'retard').length
   };
@@ -955,33 +956,57 @@ app.post('/api/attendance/face', requireAuth, (req, res) => {
   if (student.classId !== classId) {
     return res.status(400).json({ success: false, message: 'Cet étudiant n’appartient pas à cette classe' });
   }
+  const stamp = now();
   const existing = db.attendance.find((item) => item.date === date && item.classId === classId && item.studentId === student.id);
-  if (existing) {
-    existing.status = 'présent';
-    existing.method = 'facial';
-    existing.recognizedAt = now();
-  } else {
+  const punch = school.applyFacePunch(existing, stamp);
+  const name = school.fullName(student);
+  if (punch.action === 'trop_tôt') {
+    return res.json({
+      success: true,
+      action: punch.action,
+      message: `${name} vient d’arriver. Attendez ${punch.waitSeconds} s avant le scan de sortie.`,
+      student: school.withStudent(db, student),
+      attendance: db.attendance.filter((item) => item.date === date && item.classId === classId).map((item) => school.withAttendance(db, item))
+    });
+  }
+  if (punch.action === 'déjà_sorti') {
+    const row = school.withAttendance(db, existing);
+    return res.json({
+      success: true,
+      action: punch.action,
+      message: `${name} a déjà quitté le cours (${row.punchLine}). Présent.`,
+      student: school.withStudent(db, student),
+      attendance: db.attendance.filter((item) => item.date === date && item.classId === classId).map((item) => school.withAttendance(db, item))
+    });
+  }
+  if (!existing) {
     db.attendance.push({
       id: id('att'),
       studentId: student.id,
       classId,
       date,
-      status: 'présent',
       justified: false,
-      method: 'facial',
-      recognizedAt: now(),
-      year
+      year,
+      ...punch.patch
     });
+  } else {
+    Object.assign(existing, punch.patch);
   }
   save(req, db);
   const records = db.attendance.filter((item) => item.date === date && item.classId === classId);
+  const row = school.withAttendance(db, existing || records.find((item) => item.studentId === student.id));
+  const message = punch.action === 'arrivée'
+    ? `${name} : arrivée à ${row.arrivedAtLabel}. Pas encore présent — scannez à la sortie du cours.`
+    : `${name} : sortie à ${row.leftAtLabel}. Marqué présent au cours (${row.punchLine}).`;
   return res.json({
     success: true,
-    message: `${school.fullName(student)} est marqué présent`,
+    action: punch.action,
+    message,
     student: school.withStudent(db, student),
     attendance: records.map((item) => school.withAttendance(db, item)),
     summary: {
       present: records.filter((item) => item.status === 'présent').length,
+      arrived: records.filter((item) => item.status === 'arrivé').length,
       absent: records.filter((item) => item.status === 'absent').length,
       late: records.filter((item) => item.status === 'retard').length
     }

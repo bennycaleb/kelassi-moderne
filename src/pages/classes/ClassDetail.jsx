@@ -139,10 +139,16 @@ function ClassDetail() {
       {tab === 'absences' && (
         <div className="panel">
           <table>
-            <thead><tr><th>Date</th><th>Étudiant</th><th>Statut</th></tr></thead>
+            <thead><tr><th>Date</th><th>Étudiant</th><th>Statut</th><th>Entrée</th><th>Sortie</th></tr></thead>
             <tbody>
               {attendance.map((item) => (
-                <tr key={item.id}><td>{item.date}</td><td>{item.studentName}</td><td><PresenceMark status={item.status} /></td></tr>
+                <tr key={item.id}>
+                  <td>{item.date}</td>
+                  <td>{item.studentName}</td>
+                  <td><PresenceMark status={item.status} /></td>
+                  <td>{item.arrivedAtLabel || '—'}</td>
+                  <td>{item.leftAtLabel || '—'}</td>
+                </tr>
               ))}
             </tbody>
           </table>

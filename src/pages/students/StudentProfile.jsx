@@ -191,9 +191,16 @@ function StudentProfile() {
         <div className="panel">
           <p>{absences} absences · {lates} retards · présence {presenceRate || 0} %</p>
           <table>
-            <thead><tr><th>Date</th><th>Statut</th><th>Justifié</th><th>Mode</th></tr></thead>
+            <thead><tr><th>Date</th><th>Statut</th><th>Entrée</th><th>Sortie</th><th>Justifié</th><th>Mode</th></tr></thead>
             <tbody>{attendance.map((item) => (
-              <tr key={item.id}><td>{item.date}</td><td><PresenceMark status={item.status} /></td><td>{item.justified ? 'oui' : 'non'}</td><td>{item.method === 'facial' ? 'Visage' : 'Manuel'}</td></tr>
+              <tr key={item.id}>
+                <td>{item.date}</td>
+                <td><PresenceMark status={item.status} /></td>
+                <td>{item.arrivedAtLabel || '—'}</td>
+                <td>{item.leftAtLabel || '—'}</td>
+                <td>{item.justified ? 'oui' : 'non'}</td>
+                <td>{item.method === 'facial' ? 'Visage' : 'Manuel'}</td>
+              </tr>
             ))}</tbody>
           </table>
         </div>
