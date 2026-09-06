@@ -54,7 +54,7 @@ function Tenants() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Écoles locataires</h1>
-          <p>Vous créez l’école et le compte admin. Ensuite, l’école crée elle-même les profs, élèves et parents.</p>
+          <p>Pour chaque école : nombre d’élèves au total et par cycle (primaire, collège, lycée, université).</p>
         </div>
         <button type="button" className="btn" onClick={() => setOpen(true)}>Nouvelle école</button>
       </div>
@@ -66,16 +66,39 @@ function Tenants() {
           <p>Mot de passe : {created.password}</p>
         </div>
       )}
-      <div className="cycle-grid">
+      {schools.length > 0 && (
+        <div className="dashboard-grid kpi-8" style={{ marginBottom: 18 }}>
+          <div className="stat-card">
+            <h3>Écoles</h3>
+            <strong>{schools.length}</strong>
+            <p>{schools.filter((item) => item.status === 'active').length} actives</p>
+          </div>
+          <div className="stat-card">
+            <h3>Élèves inscrits</h3>
+            <strong>{schools.reduce((sum, item) => sum + Number(item.students || 0), 0)}</strong>
+            <p>Toutes écoles confondues</p>
+          </div>
+        </div>
+      )}
+      <div className="tenant-grid">
         {schools.map((item) => (
-          <div className="cycle-card" key={item.id}>
+          <div className="tenant-card" key={item.id}>
             <span className={`badge ${item.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
               {item.status === 'active' ? 'Active' : 'Suspendue'}
             </span>
             <h3>{item.name}</h3>
             <p>{item.city || item.address || '—'}</p>
             <p>Admin : {item.adminName} — {item.adminEmail}</p>
-            <p>{item.students} élèves · {item.teachers} enseignants · {item.classes} classes</p>
+            <p><b>{item.students}</b> élèves · {item.teachers} enseignants · {item.classes} classes</p>
+            <ul className="tenant-cycles">
+              {(item.byCycle || []).map((cycle) => (
+                <li key={cycle.key}>
+                  <span className="tenant-cycle-dot" style={{ background: cycle.color || '#2563eb' }} />
+                  <span>{cycle.name}</span>
+                  <b>{cycle.students}</b>
+                </li>
+              ))}
+            </ul>
             <div className="row-actions" style={{ marginTop: 12 }}>
               <button type="button" className="btn btn-secondary btn-sm" onClick={() => resetPassword(item)}>
                 Nouveau mot de passe

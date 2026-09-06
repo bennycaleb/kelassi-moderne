@@ -1,4 +1,51 @@
-const { load: loadAll, save: saveAll, id, now, defaultCycles, defaultEvaluationTypes } = require('./store');
+const { load: loadAll, save: saveAll, id, now, defaultCycles, defaultEvaluationTypes, cycleIdFromLevel } = require('./store');
+
+const CYCLE_ORDER = ['primaire', 'college', 'lycee', 'universite'];
+
+function schoolStudents(db, schoolId) {
+  const classIds = new Set((db.classes || []).filter((item) => item.schoolId === schoolId).map((item) => item.id));
+  return (db.students || []).filter((item) => item.schoolId === schoolId || classIds.has(item.classId));
+}
+
+function schoolCycles(db, schoolId) {
+  const owned = (db.cycles || []).filter((item) => item.schoolId === schoolId);
+  return owned.length ? owned : defaultCycles();
+}
+
+function cycleKeyOf(classroom, cycles) {
+  if (!classroom) return 'sans';
+  const match = cycles.find((item) => item.id === classroom.cycleId)
+    || cycles.find((item) => item.id === cycleIdFromLevel(classroom.level, classroom.name))
+    || defaultCycles().find((item) => item.id === cycleIdFromLevel(classroom.level, classroom.name));
+  return match?.code || match?.id || 'autre';
+}
+
+function studentsByCycle(db, schoolId, students) {
+  const cycles = schoolCycles(db, schoolId);
+  const counts = {};
+  cycles.forEach((cycle) => {
+    counts[cycle.code || cycle.id] = { name: cycle.name, students: 0, color: cycle.color || '#2563eb' };
+  });
+  let unassigned = 0;
+  students.forEach((student) => {
+    const classroom = (db.classes || []).find((item) => item.id === student.classId);
+    if (!classroom) {
+      unassigned += 1;
+      return;
+    }
+    const key = cycleKeyOf(classroom, cycles);
+    if (!counts[key]) counts[key] = { name: classroom.level || 'Autre', students: 0, color: '#64748b' };
+    counts[key].students += 1;
+  });
+  const rows = Object.entries(counts).map(([key, value]) => ({ key, ...value }));
+  rows.sort((a, b) => {
+    const ia = CYCLE_ORDER.indexOf(a.key);
+    const ib = CYCLE_ORDER.indexOf(b.key);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  if (unassigned) rows.push({ key: 'sans', name: 'Sans classe', students: unassigned, color: '#94a3b8' });
+  return rows;
+}
 
 const SCHOOL_KEYS = [
   'users', 'students', 'teachers', 'classes', 'subjects', 'courses', 'grades', 'payments',
@@ -173,6 +220,7 @@ function createTenant({ name, city, address, phone, adminName, adminEmail, admin
 function publicSchool(db, tenant) {
   const admin = db.users.find((user) => user.id === tenant.adminUserId);
   const schoolId = tenant.id;
+  const students = schoolStudents(db, schoolId);
   return {
     id: tenant.id,
     name: tenant.name,
@@ -184,9 +232,10 @@ function publicSchool(db, tenant) {
     createdAt: tenant.createdAt,
     adminEmail: admin?.email || '',
     adminName: admin?.name || '',
-    students: (db.students || []).filter((item) => item.schoolId === schoolId).length,
+    students: students.length,
     teachers: (db.teachers || []).filter((item) => item.schoolId === schoolId).length,
-    classes: (db.classes || []).filter((item) => item.schoolId === schoolId).length
+    classes: (db.classes || []).filter((item) => item.schoolId === schoolId).length,
+    byCycle: studentsByCycle(db, schoolId, students)
   };
 }
 
