@@ -59,6 +59,17 @@ export const ROLE_LABELS = {
   parent: 'Parent'
 };
 
+export const ENROLLMENT_DOC_TYPES = [
+  'Acte de naissance',
+  'Photo d’identité',
+  'Certificat de scolarité',
+  'Diplôme / relevé',
+  'Justificatif de domicile',
+  'Carnet de vaccination',
+  'Pièce d’identité du parent',
+  'Autre'
+];
+
 export const DOCUMENT_TYPES = [
   { id: 'certificate', label: 'Certificat de scolarité' },
   { id: 'enrollment', label: "Attestation d'inscription" },

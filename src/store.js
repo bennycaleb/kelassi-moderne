@@ -275,6 +275,7 @@ function migrate(raw) {
     if (!student.parentEmail) student.parentEmail = '';
     if (!student.emergencyContact) student.emergencyContact = '';
     if (!Array.isArray(student.faceDescriptor)) student.faceDescriptor = [];
+    if (!Array.isArray(student.enrollmentDocs)) student.enrollmentDocs = [];
     if (!student.classId) {
       const found = data.classes.find((item) => item.name === student.className);
       student.classId = found ? found.id : '';

@@ -35,10 +35,21 @@ function classNameOf(db, student) {
   return found ? found.name : (student.className || '');
 }
 
+function publicEnrollmentDocs(docs) {
+  return (Array.isArray(docs) ? docs : []).map((doc) => ({
+    id: doc.id,
+    type: doc.type || 'Autre',
+    originalName: doc.originalName || '',
+    mime: doc.mime || '',
+    uploadedAt: doc.uploadedAt || ''
+  }));
+}
+
 function withStudent(db, student) {
-  const { faceDescriptor, ...rest } = student || {};
+  const { faceDescriptor, enrollmentDocs, ...rest } = student || {};
   return {
     ...rest,
+    enrollmentDocs: publicEnrollmentDocs(enrollmentDocs),
     className: classNameOf(db, student),
     class: classById(db, student.classId),
     hasFace: Array.isArray(faceDescriptor) && faceDescriptor.length > 0
@@ -699,6 +710,7 @@ module.exports = {
   studentById,
   fullName,
   classNameOf,
+  publicEnrollmentDocs,
   withStudent,
   withStudentFace,
   withTeacher,

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Avatar from '../../components/Avatar';
+import EnrollmentDocsField from '../../components/EnrollmentDocs';
 import FaceCapture from '../../components/FaceCapture';
 import Modal from '../../components/Modal';
 import { useSchool } from '../../context/SchoolContext';
-import { readPhoto } from '../../services/api';
+import { api, readPhoto } from '../../services/api';
 import { createStudent, deleteStudent, getStudents, updateStudent } from '../../services/student';
 
 const emptyForm = {
@@ -25,6 +26,7 @@ function Students() {
   const [query, setQuery] = useState('');
   const [classFilter, setClassFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [pendingDocs, setPendingDocs] = useState([]);
 
   async function refresh() {
     const data = await getStudents();
@@ -60,6 +62,7 @@ function Students() {
   function openCreate() {
     setEditing(null);
     setForm({ ...emptyForm, classId: classes[0]?.id || '' });
+    setPendingDocs([]);
     setError('');
     setOpen(true);
   }
@@ -67,6 +70,7 @@ function Students() {
   function openEdit(student) {
     setEditing(student);
     setForm({ ...emptyForm, ...student, password: '' });
+    setPendingDocs([]);
     setError('');
     setOpen(true);
   }
@@ -76,7 +80,11 @@ function Students() {
     setError('');
     try {
       const payload = { ...form };
+      delete payload.enrollmentDocs;
       if (!payload.faceDescriptor?.length) delete payload.faceDescriptor;
+      if (pendingDocs.length) {
+        payload.enrollmentDocs = pendingDocs.map(({ type, fileName, fileData }) => ({ type, fileName, fileData }));
+      }
       if (editing) await updateStudent(editing.id, payload);
       else setCredentials((await createStudent(payload)).credentials);
       await refresh();
@@ -84,6 +92,16 @@ function Students() {
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  async function deleteExistingDoc(doc) {
+    if (!editing) return;
+    if (!window.confirm(`Retirer « ${doc.originalName} » du dossier ?`)) return;
+    await api(`/api/students/${editing.id}/enrollment-docs/${doc.id}`, { method: 'DELETE' });
+    const next = (form.enrollmentDocs || []).filter((item) => item.id !== doc.id);
+    setForm((current) => ({ ...current, enrollmentDocs: next }));
+    setEditing((current) => ({ ...current, enrollmentDocs: next }));
+    refresh();
   }
 
   return (
@@ -160,6 +178,9 @@ function Students() {
                         <div>
                           <strong>{student.lastName} {student.firstName}</strong>
                           <small className="muted-line">{student.email}</small>
+                          {(student.enrollmentDocs || []).length > 0 && (
+                            <small className="muted-line">{student.enrollmentDocs.length} pièce(s) au dossier</small>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -212,6 +233,16 @@ function Students() {
               <div className="form-field"><label>Tél. parent</label><input name="parentPhone" value={form.parentPhone} onChange={change} /></div>
               <div className="form-field"><label>Email parent</label><input name="parentEmail" value={form.parentEmail} onChange={change} /></div>
               <div className="form-field"><label>Contact d’urgence</label><input name="emergencyContact" value={form.emergencyContact} onChange={change} /></div>
+              <div className="form-field full">
+                <label>Dossier d’inscription</label>
+                <EnrollmentDocsField
+                  studentId={editing?.id}
+                  existing={editing ? (form.enrollmentDocs || []) : []}
+                  pending={pendingDocs}
+                  onPendingChange={setPendingDocs}
+                  onDeleteExisting={editing ? deleteExistingDoc : undefined}
+                />
+              </div>
               {!editing && <div className="form-field full"><label>Mot de passe (optionnel)</label><input name="password" value={form.password} onChange={change} placeholder="Généré automatiquement si vide" /></div>}
             </div>
             {error && <p className="error">{error}</p>}

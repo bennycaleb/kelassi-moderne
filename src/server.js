@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { load: loadAll, save: saveAll, boot, dataDir, persistMode, flush, readSessionMap, saveSessions, id, now, today, cycleIdFromLevel } = require('./store');
+const persist = require('./persist');
 const school = require('./school');
 const tenant = require('./tenant');
 const kelassiAi = require('./ai');
@@ -238,6 +239,65 @@ function sendUpload(res, storedName, originalName, mime) {
   return res.sendFile(filePath);
 }
 
+function ingestEnrollmentDoc(item, meta = {}) {
+  const fileName = String(item.fileName || item.originalName || 'document').trim();
+  const fileData = String(item.fileData || '');
+  if (!fileData) {
+    const error = new Error('Fichier manquant pour le dossier d’inscription.');
+    error.status = 400;
+    throw error;
+  }
+  if (fileData.length > 12_000_000) {
+    const error = new Error(`Le fichier « ${fileName} » est trop volumineux (max. 8 Mo).`);
+    error.status = 400;
+    throw error;
+  }
+  const stored = saveUpload('dossier', fileName, fileData);
+  const doc = {
+    id: id('edoc'),
+    type: String(item.type || 'Autre').trim() || 'Autre',
+    originalName: stored.originalName,
+    mime: stored.mime,
+    storedName: stored.storedName,
+    uploadedAt: now()
+  };
+  persist.saveBlob(doc.id, {
+    schoolId: meta.schoolId || '',
+    studentId: meta.studentId || '',
+    originalName: doc.originalName,
+    mime: doc.mime,
+    dataUrl: fileData
+  });
+  return doc;
+}
+
+function ingestEnrollmentDocs(items, meta = {}) {
+  return (Array.isArray(items) ? items : []).filter((item) => item && item.fileData).map((item) => ingestEnrollmentDoc(item, meta));
+}
+
+async function ensureEnrollmentFile(doc) {
+  if (!doc) return null;
+  const filePath = path.join(uploadDir(), path.basename(doc.storedName || ''));
+  if (doc.storedName && fs.existsSync(filePath)) return doc;
+  const blob = await persist.readBlob(doc.id);
+  const dataUrl = blob?.dataUrl || doc.fileData;
+  if (!dataUrl) return null;
+  const stored = saveUpload('dossier', doc.originalName || 'document', dataUrl);
+  doc.storedName = stored.storedName;
+  doc.mime = stored.mime || doc.mime;
+  return doc;
+}
+
+function removeEnrollmentDoc(student, docId) {
+  const docs = Array.isArray(student.enrollmentDocs) ? student.enrollmentDocs : [];
+  const found = docs.find((item) => item.id === docId);
+  if (!found) return false;
+  removeUpload(found.storedName);
+  persist.deleteBlob(found.id);
+  student.enrollmentDocs = docs.filter((item) => item.id !== docId);
+  return true;
+}
+
 function canManageWork(db, session, work) {
   if (STAFF.includes(session.role)) return true;
   const teacher = sessionTeacher(db, session);
@@ -454,6 +514,14 @@ app.post('/api/students', requireStaff, (req, res) => {
     status: 'actif',
     createdAt: now()
   };
+  try {
+    student.enrollmentDocs = ingestEnrollmentDocs(req.body.enrollmentDocs, {
+      schoolId: req.session.schoolId || '',
+      studentId: student.id
+    });
+  } catch (err) {
+    return res.status(err.status || 400).json({ success: false, message: err.message });
+  }
   db.users.push({ id: userId, email, password, role: 'student', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
   db.students.push(student);
   school.syncFamilyLinks(db, { student });
@@ -493,8 +561,68 @@ app.put('/api/students/:id', requireStaff, (req, res) => {
     user.name = `${student.firstName} ${student.lastName}`;
   }
   school.syncFamilyLinks(db, { student });
+  if (Array.isArray(req.body.enrollmentDocs)) {
+    try {
+      const extra = ingestEnrollmentDocs(req.body.enrollmentDocs, {
+        schoolId: req.session.schoolId || '',
+        studentId: student.id
+      });
+      if (extra.length) student.enrollmentDocs = [...(student.enrollmentDocs || []), ...extra];
+    } catch (err) {
+      return res.status(err.status || 400).json({ success: false, message: err.message });
+    }
+  }
   save(req, db);
   return res.json({ success: true, student: school.withStudent(db, student) });
+});
+
+app.post('/api/students/:id/enrollment-docs', requireStaff, (req, res) => {
+  const db = load(req);
+  const student = db.students.find((item) => item.id === req.params.id);
+  if (!student) return res.status(404).json({ success: false, message: 'Étudiant introuvable' });
+  try {
+    const incoming = Array.isArray(req.body.enrollmentDocs) ? req.body.enrollmentDocs : [req.body];
+    const extra = ingestEnrollmentDocs(incoming, {
+      schoolId: req.session.schoolId || '',
+      studentId: student.id
+    });
+    if (!extra.length) return res.status(400).json({ success: false, message: 'Ajoutez au moins un fichier.' });
+    student.enrollmentDocs = [...(student.enrollmentDocs || []), ...extra];
+  } catch (err) {
+    return res.status(err.status || 400).json({ success: false, message: err.message });
+  }
+  save(req, db);
+  return res.status(201).json({
+    success: true,
+    message: 'Document enregistré dans le dossier',
+    enrollmentDocs: school.publicEnrollmentDocs(student.enrollmentDocs)
+  });
+});
+
+app.get('/api/students/:id/enrollment-docs/:docId/file', requireStaff, async (req, res) => {
+  const db = load(req);
+  const student = db.students.find((item) => item.id === req.params.id);
+  const doc = (student?.enrollmentDocs || []).find((item) => item.id === req.params.docId);
+  if (!student || !doc) return res.status(404).json({ success: false, message: 'Document introuvable' });
+  const restored = await ensureEnrollmentFile(doc);
+  if (!restored) return res.status(404).json({ success: false, message: 'Fichier introuvable' });
+  save(req, db);
+  return sendUpload(res, restored.storedName, restored.originalName, restored.mime);
+});
+
+app.delete('/api/students/:id/enrollment-docs/:docId', requireStaff, (req, res) => {
+  const db = load(req);
+  const student = db.students.find((item) => item.id === req.params.id);
+  if (!student) return res.status(404).json({ success: false, message: 'Étudiant introuvable' });
+  if (!removeEnrollmentDoc(student, req.params.docId)) {
+    return res.status(404).json({ success: false, message: 'Document introuvable' });
+  }
+  save(req, db);
+  return res.json({
+    success: true,
+    message: 'Document retiré du dossier',
+    enrollmentDocs: school.publicEnrollmentDocs(student.enrollmentDocs)
+  });
 });
 
 app.post('/api/students/:id/reset-password', requireStaff, (req, res) => {
@@ -528,6 +656,10 @@ app.delete('/api/students/:id', requireStaff, (req, res) => {
   const db = load(req);
   const student = db.students.find((item) => item.id === req.params.id);
   if (!student) return res.status(404).json({ success: false, message: 'Étudiant introuvable' });
+  (student.enrollmentDocs || []).forEach((doc) => {
+    removeUpload(doc.storedName);
+    persist.deleteBlob(doc.id);
+  });
   db.students = db.students.filter((item) => item.id !== student.id);
   db.users = db.users.filter((item) => item.id !== student.userId);
   db.grades = db.grades.filter((item) => item.studentId !== student.id);

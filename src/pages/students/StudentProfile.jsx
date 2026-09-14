@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Avatar from '../../components/Avatar';
+import EnrollmentDocsField from '../../components/EnrollmentDocs';
 import PresenceMark from '../../components/PresenceMark';
 import { DOCUMENT_TYPES, FEE_TYPES, PAYMENT_METHODS } from '../../constants';
 import { useSchool } from '../../context/SchoolContext';
@@ -15,6 +16,7 @@ const TABS = [
   { id: 'notes', label: 'Notes' },
   { id: 'presences', label: 'Présences' },
   { id: 'paiements', label: 'Paiements' },
+  { id: 'dossier', label: 'Dossier d’inscription' },
   { id: 'documents', label: 'Documents' },
   { id: 'historique', label: 'Historique scolaire' }
 ];
@@ -31,6 +33,8 @@ function StudentProfile() {
   const [aiLoading, setAiLoading] = useState(false);
   const [parentAccounts, setParentAccounts] = useState([]);
   const [linkParentId, setLinkParentId] = useState('');
+  const [pendingDocs, setPendingDocs] = useState([]);
+  const [docError, setDocError] = useState('');
   const [payForm, setPayForm] = useState({
     amount: '',
     method: PAYMENT_METHODS[0],
@@ -97,6 +101,7 @@ function StudentProfile() {
           <p><b>Adresse :</b> {student.address || '—'}</p>
           <p><b>Urgence :</b> {student.emergencyContact || '—'}</p>
           <p><b>Statut :</b> {student.status}</p>
+          <p><b>Dossier d’inscription :</b> {(student.enrollmentDocs || []).length} pièce(s) enregistrée(s)</p>
         </div>
       )}
 
@@ -280,6 +285,49 @@ function StudentProfile() {
               </tr>
             ))}</tbody>
           </table>
+        </div>
+      )}
+
+      {tab === 'dossier' && (
+        <div className="panel">
+          <h2>Dossier d’inscription de {student.firstName}</h2>
+          <EnrollmentDocsField
+            studentId={student.id}
+            existing={student.enrollmentDocs || []}
+            pending={pendingDocs}
+            onPendingChange={setPendingDocs}
+            onDeleteExisting={async (doc) => {
+              if (!window.confirm(`Retirer « ${doc.originalName} » du dossier ?`)) return;
+              await api(`/api/students/${student.id}/enrollment-docs/${doc.id}`, { method: 'DELETE' });
+              reload();
+            }}
+          />
+          {docError && <p className="error">{docError}</p>}
+          {pendingDocs.length > 0 && (
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={async () => {
+                  setDocError('');
+                  try {
+                    await api(`/api/students/${student.id}/enrollment-docs`, {
+                      method: 'POST',
+                      body: {
+                        enrollmentDocs: pendingDocs.map(({ type, fileName, fileData }) => ({ type, fileName, fileData }))
+                      }
+                    });
+                    setPendingDocs([]);
+                    await reload();
+                  } catch (err) {
+                    setDocError(err.message);
+                  }
+                }}
+              >
+                Enregistrer {pendingDocs.length} pièce(s)
+              </button>
+            </div>
+          )}
         </div>
       )}
 

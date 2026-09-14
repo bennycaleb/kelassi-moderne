@@ -5,6 +5,7 @@ function mongoUri() {
 }
 
 let Snapshot = null;
+let FileBlob = null;
 let connected = false;
 const pending = new Map();
 let flushTimer = null;
@@ -22,6 +23,23 @@ function snapshotModel() {
   return Snapshot;
 }
 
+function fileBlobModel() {
+  if (FileBlob) return FileBlob;
+  FileBlob = mongoose.models.KelassiFileBlob || mongoose.model(
+    'KelassiFileBlob',
+    new mongoose.Schema({
+      _id: { type: String },
+      schoolId: String,
+      studentId: String,
+      originalName: String,
+      mime: String,
+      dataUrl: String,
+      updatedAt: Date
+    }, { collection: 'kelassi_file_blobs' })
+  );
+  return FileBlob;
+}
+
 async function connect() {
   const uri = mongoUri();
   if (!uri) {
@@ -33,6 +51,7 @@ async function connect() {
   if (connected) return true;
   await mongoose.connect(uri);
   snapshotModel();
+  fileBlobModel();
   connected = true;
   console.log('Kelassi : données enregistrées dans MongoDB (les comptes survivent aux mises à jour).');
   return true;
@@ -76,4 +95,36 @@ async function flush() {
   }
 }
 
-module.exports = { mongoUri, connect, connected: () => connected, mode, read, writeNow, queue, flush };
+function saveBlob(id, payload) {
+  if (!connected) return Promise.resolve();
+  return fileBlobModel().findByIdAndUpdate(
+    id,
+    { ...payload, updatedAt: new Date() },
+    { upsert: true, setDefaultsOnInsert: true }
+  ).catch((error) => console.error('Sauvegarde fichier dossier :', error.message));
+}
+
+async function readBlob(id) {
+  if (!connected) return null;
+  const doc = await fileBlobModel().findById(id).lean();
+  return doc || null;
+}
+
+function deleteBlob(id) {
+  if (!connected) return Promise.resolve();
+  return fileBlobModel().findByIdAndDelete(id).catch((error) => console.error('Suppression fichier dossier :', error.message));
+}
+
+module.exports = {
+  mongoUri,
+  connect,
+  connected: () => connected,
+  mode,
+  read,
+  writeNow,
+  queue,
+  flush,
+  saveBlob,
+  readBlob,
+  deleteBlob
+};
