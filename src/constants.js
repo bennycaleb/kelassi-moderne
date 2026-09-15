@@ -93,7 +93,7 @@ export function roleHome(role) {
 export function canSee(role, section) {
   if (['admin', 'superadmin', 'director'].includes(role)) return true;
   if (role === 'secretary') {
-    return !['users'].includes(section) || true;
+    return !['users', 'secretaries'].includes(section);
   }
   if (role === 'accountant') {
     return ['dashboard', 'payments', 'documents', 'settings', 'ai'].includes(section);

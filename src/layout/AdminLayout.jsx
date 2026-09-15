@@ -41,6 +41,7 @@ const GROUPS = [
   {
     label: 'Administration',
     items: [
+      { to: '/dashboard/secretaries', label: 'Secrétariat', section: 'secretaries' },
       { to: '/dashboard/users', label: 'Utilisateurs', section: 'users' },
       { to: '/dashboard/academic', label: 'Règles de notation', section: 'academic' },
       { to: '/dashboard/settings', label: 'Paramètres', section: 'settings' }

@@ -30,6 +30,7 @@ import Communication from '../pages/communication/Communication';
 import SettingsPage from '../pages/settings/Settings';
 import AiDesk from '../pages/ai/AiDesk';
 import UsersPage from '../pages/users/Users';
+import Secretaries from '../pages/users/Secretaries';
 import AcademicConfig from '../pages/academic/AcademicConfig';
 import TeacherEvaluations from '../pages/academic/TeacherEvaluations';
 import OwnerLayout from '../layout/OwnerLayout';
@@ -139,6 +140,7 @@ function AppRouter() {
                 <Route path="documents" element={<Documents />} />
                 <Route path="parents" element={<Parents />} />
                 <Route path="communication" element={<Communication />} />
+                <Route path="secretaries" element={<Secretaries />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="ai" element={<AiDesk />} />

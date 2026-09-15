@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../../components/Modal';
-import { ROLE_LABELS } from '../../constants';
 import { api } from '../../services/api';
 
-function UsersPage() {
-  const [users, setUsers] = useState([]);
+function Secretaries() {
+  const [secretaries, setSecretaries] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '' });
   const [error, setError] = useState('');
@@ -12,13 +11,14 @@ function UsersPage() {
   const current = (() => {
     try { return JSON.parse(localStorage.getItem('kelassi_user') || '{}'); } catch { return {}; }
   })();
-  const canCreate = ['admin', 'superadmin', 'director'].includes(current.role);
+  const canManage = ['admin', 'superadmin', 'director'].includes(current.role);
 
   async function refresh() {
-    setUsers((await api('/api/users')).users);
+    const data = await api('/api/users');
+    setSecretaries((data.users || []).filter((user) => user.role === 'secretary'));
   }
 
-  useEffect(() => { refresh().catch(() => {}); }, []);
+  useEffect(() => { refresh().catch((err) => setError(err.message)); }, []);
 
   function openCreate() {
     setError('');
@@ -53,57 +53,60 @@ function UsersPage() {
     <div>
       <div className="page-toolbar">
         <div className="page-header">
-          <h1>Utilisateurs & rôles</h1>
-          <p>Pour créer un secrétaire, ouvrez le menu <b>Secrétariat</b>. Ici, vous voyez tous les comptes et leurs rôles.</p>
+          <h1>Secrétariat</h1>
+          <p>L’administrateur crée ici le compte de la secrétaire. Elle pourra ensuite inscrire les élèves, les parents et les enseignants.</p>
         </div>
-        {canCreate && (
-          <button type="button" className="btn" onClick={openCreate}>➕ Ajouter un secrétaire</button>
-        )}
+        {canManage && <button type="button" className="btn" onClick={openCreate}>➕ Ajouter un secrétaire</button>}
       </div>
       {credentials && (
         <div className="credentials-box">
           <p>Email : <b>{credentials.email}</b> — Mot de passe : <b>{credentials.password}</b></p>
-          <p>Remettez ces identifiants à la personne. Elle se connecte sur la même page que vous.</p>
+          <p>Remettez ces identifiants à la secrétaire. Elle se connecte sur la même page que l’admin.</p>
         </div>
       )}
       {error && !open && <p className="error">{error}</p>}
       <div className="panel">
-        <table>
-          <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th></th></tr></thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id}>
-                <td>{user.name}</td>
-                <td>{user.email}</td>
-                <td>
-                  <select value={user.role} onChange={async (event) => { await api(`/api/users/${user.id}/role`, { method: 'PUT', body: { role: event.target.value } }); refresh(); }}>
-                    {Object.keys(ROLE_LABELS).filter((role) => role !== 'owner').map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
-                  </select>
-                </td>
-                <td>
-                  {user.id === current.id ? 'Compte actuel' : (
-                    <div className="row-actions">
-                      {canCreate && user.role !== 'owner' && (
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => resetPassword(user)}>Mot de passe</button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-sm"
-                        onClick={async () => {
-                          if (!window.confirm(`Supprimer le compte de ${user.name} ?`)) return;
-                          await api(`/api/users/${user.id}`, { method: 'DELETE' });
-                          refresh();
-                        }}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  )}
-                </td>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Email</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {secretaries.length === 0 ? (
+                <tr><td colSpan="3">Aucun compte secrétaire pour le moment. Cliquez sur « Ajouter un secrétaire ».</td></tr>
+              ) : secretaries.map((user) => (
+                <tr key={user.id}>
+                  <td><strong>{user.name}</strong></td>
+                  <td>{user.email}</td>
+                  <td>
+                    <div className="row-actions">
+                      {canManage && (
+                        <>
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => resetPassword(user)}>Mot de passe</button>
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm"
+                            onClick={async () => {
+                              if (!window.confirm(`Supprimer le compte de ${user.name} ?`)) return;
+                              await api(`/api/users/${user.id}`, { method: 'DELETE' });
+                              refresh();
+                            }}
+                          >
+                            Supprimer
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       {open && (
         <Modal title="Ajouter un secrétaire" onClose={() => setOpen(false)}>
@@ -126,4 +129,4 @@ function UsersPage() {
   );
 }
 
-export default UsersPage;
+export default Secretaries;
