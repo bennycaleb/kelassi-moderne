@@ -1718,6 +1718,61 @@ app.get('/api/users', requireStaff, (req, res) => {
   return res.json({ success: true, users: db.users.map((user) => publicUser(user)) });
 });
 
+function canManageStaffAccounts(role) {
+  return ['admin', 'superadmin', 'director'].includes(role);
+}
+
+app.post('/api/users', requireStaff, (req, res) => {
+  if (!canManageStaffAccounts(req.session.role)) {
+    return res.status(403).json({ success: false, message: 'Seul l’administrateur ou le directeur peut créer un compte secrétaire.' });
+  }
+  const firstName = String(req.body.firstName || '').trim();
+  const lastName = String(req.body.lastName || '').trim();
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const role = 'secretary';
+  if (!firstName || !lastName || !email) {
+    return res.status(400).json({ success: false, message: 'Prénom, nom et email obligatoires' });
+  }
+  const db = load(req);
+  if (loadAll().users.some((item) => String(item.email || '').trim().toLowerCase() === email)) {
+    return res.status(409).json({ success: false, message: 'Cet email a déjà un compte. Choisissez un autre email.' });
+  }
+  const password = String(req.body.password || '').trim() || generatePassword('Secretaire');
+  const user = {
+    id: id('u'),
+    email,
+    password,
+    role,
+    name: `${firstName} ${lastName}`.trim(),
+    schoolId: req.session.schoolId || '',
+    createdAt: now()
+  };
+  db.users.push(user);
+  save(req, db);
+  return res.status(201).json({
+    success: true,
+    message: 'Compte ouvert',
+    user: publicUser(user),
+    credentials: { email, password }
+  });
+});
+
+app.post('/api/users/:id/reset-password', requireStaff, (req, res) => {
+  if (!canManageStaffAccounts(req.session.role)) {
+    return res.status(403).json({ success: false, message: 'Seul l’administrateur ou le directeur peut réinitialiser ce mot de passe.' });
+  }
+  const db = load(req);
+  const user = db.users.find((item) => item.id === req.params.id);
+  if (!user) return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
+  if (user.role === 'owner') {
+    return res.status(403).json({ success: false, message: 'Le compte entreprise ne peut pas être modifié ici' });
+  }
+  const password = generatePassword(user.role === 'secretary' ? 'Secretaire' : 'Staff');
+  user.password = password;
+  save(req, db);
+  return res.json({ success: true, credentials: { email: user.email, password } });
+});
+
 app.put('/api/users/:id/role', requireStaff, (req, res) => {
   const db = load(req);
   const user = db.users.find((item) => item.id === req.params.id);
