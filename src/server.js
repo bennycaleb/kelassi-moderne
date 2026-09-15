@@ -88,6 +88,13 @@ function createSession(user) {
   return token;
 }
 
+function recordedBy(req) {
+  return {
+    createdById: req.session?.id || '',
+    createdByName: req.session?.name || req.session?.email || ''
+  };
+}
+
 function loginWithEmail(email, password) {
   const normalized = String(email || '').trim().toLowerCase();
   const secret = String(password || '').trim();
@@ -512,7 +519,8 @@ app.post('/api/students', requireStaff, (req, res) => {
     parentEmail: req.body.parentEmail || '',
     emergencyContact: req.body.emergencyContact || '',
     status: 'actif',
-    createdAt: now()
+    createdAt: now(),
+    ...recordedBy(req)
   };
   try {
     student.enrollmentDocs = ingestEnrollmentDocs(req.body.enrollmentDocs, {
@@ -733,7 +741,8 @@ app.post('/api/teachers', requireStaff, (req, res) => {
     salary: req.body.salary || '',
     status: 'actif',
     year: school.yearOf(req, db),
-    createdAt: now()
+    createdAt: now(),
+    ...recordedBy(req)
   };
   db.users.push({ id: userId, email, password, role: 'teacher', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
   db.teachers.push(teacher);
@@ -1657,7 +1666,8 @@ app.post('/api/parents', requireStaff, (req, res) => {
     email,
     phone: req.body.phone || '',
     childrenIds: asIdList(req.body.childrenIds),
-    createdAt: now()
+    createdAt: now(),
+    ...recordedBy(req)
   };
   db.users.push({ id: userId, email, password, role: 'parent', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
   db.parents.push(parent);

@@ -101,6 +101,7 @@ function StudentProfile() {
           <p><b>Adresse :</b> {student.address || '—'}</p>
           <p><b>Urgence :</b> {student.emergencyContact || '—'}</p>
           <p><b>Statut :</b> {student.status}</p>
+          <p><b>Inscrit par :</b> {student.createdByName || '—'}</p>
           <p><b>Dossier d’inscription :</b> {(student.enrollmentDocs || []).length} pièce(s) enregistrée(s)</p>
         </div>
       )}

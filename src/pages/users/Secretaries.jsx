@@ -54,7 +54,7 @@ function Secretaries() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Secrétariat</h1>
-          <p>L’administrateur crée ici le compte de la secrétaire. Elle pourra ensuite inscrire les élèves, les parents et les enseignants.</p>
+          <p>Vous pouvez créer <b>plusieurs secrétaires</b>. Ils travaillent tous sur la même école : si l’une inscrit un élève, l’autre le voit tout de suite dans la liste.</p>
         </div>
         {canManage && <button type="button" className="btn" onClick={openCreate}>➕ Ajouter un secrétaire</button>}
       </div>

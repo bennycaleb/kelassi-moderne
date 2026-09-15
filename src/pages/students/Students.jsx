@@ -164,6 +164,7 @@ function Students() {
                   <th>Scolarité</th>
                   <th>Téléphone</th>
                   <th>Statut</th>
+                  <th>Inscrit par</th>
                   <th>Visage</th>
                   <th>Actions</th>
                 </tr>
@@ -190,6 +191,7 @@ function Students() {
                     <td><span className={student.tuitionStatus === 'payé' ? 'badge badge-success' : student.tuitionStatus === 'partiel' ? 'badge badge-warning' : student.tuitionStatus === 'impayé' ? 'badge badge-danger' : 'badge'}>{student.tuitionLabel || '—'}</span></td>
                     <td>{student.phone || '—'}</td>
                     <td><span className={student.status === 'actif' ? 'badge badge-success' : 'badge badge-warning'}>{student.status}</span></td>
+                    <td>{student.createdByName || '—'}</td>
                     <td><span className={student.hasFace ? 'badge badge-success' : 'badge badge-warning'}>{student.hasFace ? 'Enregistré' : 'À scanner'}</span></td>
                     <td>
                       <div className="row-actions">
