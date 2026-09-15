@@ -10,6 +10,8 @@ const persist = require('./persist');
 const school = require('./school');
 const tenant = require('./tenant');
 const kelassiAi = require('./ai');
+const helmet = require('helmet');
+const { looksHashed, hashPassword, verifyPassword, generatePassword } = require('./passwords');
 
 const app = express();
 const PORT = Number(process.env.PORT || 5001);
@@ -36,8 +38,46 @@ function persistSessions() {
 }
 
 let sessions = new Map();
+const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const loginAttempts = new Map();
+
+function loginKey(req) {
+  const email = String(req.body?.email || req.body?.username || '').trim().toLowerCase();
+  return `${req.ip || 'unknown'}:${email}`;
+}
+
+function tooManyLogins(req) {
+  const key = loginKey(req);
+  const nowMs = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry) return false;
+  if (nowMs - entry.start > 15 * 60 * 1000) {
+    loginAttempts.delete(key);
+    return false;
+  }
+  return entry.count >= 8;
+}
+
+function recordFailedLogin(req) {
+  const key = loginKey(req);
+  const nowMs = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || nowMs - entry.start > 15 * 60 * 1000) {
+    loginAttempts.set(key, { count: 1, start: nowMs });
+    return;
+  }
+  entry.count += 1;
+}
+
+function clearLoginAttempts(req) {
+  loginAttempts.delete(loginKey(req));
+}
 
 app.set('trust proxy', 1);
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
 app.use(cors({
   origin(origin, callback) {
     if (!origin || allowedOrigins().includes(origin) || process.env.NODE_ENV !== 'production') {
@@ -48,10 +88,6 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-function generatePassword(prefix) {
-  return `${prefix}${Math.floor(1000 + Math.random() * 9000)}`;
-}
 
 function load(req) {
   return tenant.read(req);
@@ -106,9 +142,13 @@ function loginWithEmail(email, password) {
   if (!matches.length) {
     return { status: 401, body: { success: false, message: 'Aucun compte avec cet email. Utilisez l’email affiché à la création, pas le nom.' } };
   }
-  const user = matches.find((item) => String(item.password || '').trim() === secret);
+  const user = matches.find((item) => verifyPassword(secret, item.password));
   if (!user) {
     return { status: 401, body: { success: false, message: 'Mot de passe incorrect. Recopiez celui affiché à la création (majuscules comprises).' } };
+  }
+  if (!looksHashed(user.password)) {
+    user.password = hashPassword(secret);
+    saveAll(db);
   }
   if (user.role !== 'owner') {
     const found = tenant.schoolById(db, user.schoolId);
@@ -132,6 +172,12 @@ function requireAuth(req, res, next) {
   const token = getToken(req);
   const session = token && sessions.get(token);
   if (!session) return res.status(401).json({ success: false, message: 'Non authentifié' });
+  const started = session.createdAt || 0;
+  if (started && Date.now() - started > SESSION_MS) {
+    sessions.delete(token);
+    persistSessions();
+    return res.status(401).json({ success: false, message: 'Session expirée. Reconnectez-vous.' });
+  }
   if (!session.schoolId && session.role !== 'owner') {
     const user = loadAll().users.find((item) => item.id === session.id);
     if (user) session.schoolId = user.schoolId || '';
@@ -348,17 +394,27 @@ app.put('/api/tenants/:id/password', requireOwner, (req, res) => {
   if (!found) return res.status(404).json({ success: false, message: 'École introuvable' });
   const admin = db.users.find((item) => item.id === found.adminUserId);
   if (!admin) return res.status(404).json({ success: false, message: 'Admin de l’école introuvable' });
-  admin.password = password;
+  admin.password = hashPassword(password);
   tenant.saveAll(db);
   return res.json({ success: true, message: 'Mot de passe admin mis à jour', credentials: { email: admin.email, password } });
 });
 
 app.post('/api/auth/login', (req, res) => {
+  if (tooManyLogins(req)) {
+    return res.status(429).json({ success: false, message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' });
+  }
   const result = loginWithEmail(req.body.email, req.body.password);
+  if (result.status === 200) clearLoginAttempts(req);
+  else if (result.status === 401) recordFailedLogin(req);
   return res.status(result.status).json(result.body);
 });
 app.post('/api/auth/admin/login', (req, res) => {
+  if (tooManyLogins(req)) {
+    return res.status(429).json({ success: false, message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' });
+  }
   const result = loginWithEmail(req.body.username || req.body.email, req.body.password);
+  if (result.status === 200) clearLoginAttempts(req);
+  else if (result.status === 401) recordFailedLogin(req);
   return res.status(result.status).json(result.body);
 });
 
@@ -530,7 +586,7 @@ app.post('/api/students', requireStaff, (req, res) => {
   } catch (err) {
     return res.status(err.status || 400).json({ success: false, message: err.message });
   }
-  db.users.push({ id: userId, email, password, role: 'student', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
+  db.users.push({ id: userId, email, password: hashPassword(password), role: 'student', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
   db.students.push(student);
   school.syncFamilyLinks(db, { student });
   save(req, db);
@@ -639,7 +695,7 @@ app.post('/api/students/:id/reset-password', requireStaff, (req, res) => {
   const user = student && db.users.find((item) => item.id === student.userId);
   if (!student || !user) return res.status(404).json({ success: false, message: 'Étudiant introuvable' });
   const password = generatePassword('Eleve');
-  user.password = password;
+  user.password = hashPassword(password);
   save(req, db);
   return res.json({ success: true, credentials: { email: user.email, password } });
 });
@@ -744,7 +800,7 @@ app.post('/api/teachers', requireStaff, (req, res) => {
     createdAt: now(),
     ...recordedBy(req)
   };
-  db.users.push({ id: userId, email, password, role: 'teacher', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
+  db.users.push({ id: userId, email, password: hashPassword(password), role: 'teacher', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
   db.teachers.push(teacher);
   save(req, db);
   return res.status(201).json({ success: true, teacher: school.withTeacher(db, teacher), credentials: { email, password } });
@@ -775,7 +831,7 @@ app.post('/api/teachers/:id/reset-password', requireStaff, (req, res) => {
   const user = teacher && db.users.find((item) => item.id === teacher.userId);
   if (!teacher || !user) return res.status(404).json({ success: false, message: 'Enseignant introuvable' });
   const password = generatePassword('Prof');
-  user.password = password;
+  user.password = hashPassword(password);
   save(req, db);
   return res.json({ success: true, credentials: { email: user.email, password } });
 });
@@ -1669,7 +1725,7 @@ app.post('/api/parents', requireStaff, (req, res) => {
     createdAt: now(),
     ...recordedBy(req)
   };
-  db.users.push({ id: userId, email, password, role: 'parent', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
+  db.users.push({ id: userId, email, password: hashPassword(password), role: 'parent', name: `${firstName} ${lastName}`, schoolId: req.session.schoolId || '', createdAt: now() });
   db.parents.push(parent);
   school.syncFamilyLinks(db, { parent });
   save(req, db);
@@ -1724,6 +1780,9 @@ app.delete('/api/parents/:id', requireStaff, (req, res) => {
 });
 
 app.get('/api/users', requireStaff, (req, res) => {
+  if (!canManageStaffAccounts(req.session.role)) {
+    return res.status(403).json({ success: false, message: 'Accès réservé à l’administrateur ou au directeur.' });
+  }
   const db = load(req);
   return res.json({ success: true, users: db.users.map((user) => publicUser(user)) });
 });
@@ -1751,7 +1810,7 @@ app.post('/api/users', requireStaff, (req, res) => {
   const user = {
     id: id('u'),
     email,
-    password,
+    password: hashPassword(password),
     role,
     name: `${firstName} ${lastName}`.trim(),
     schoolId: req.session.schoolId || '',
@@ -1778,12 +1837,15 @@ app.post('/api/users/:id/reset-password', requireStaff, (req, res) => {
     return res.status(403).json({ success: false, message: 'Le compte entreprise ne peut pas être modifié ici' });
   }
   const password = generatePassword(user.role === 'secretary' ? 'Secretaire' : 'Staff');
-  user.password = password;
+  user.password = hashPassword(password);
   save(req, db);
   return res.json({ success: true, credentials: { email: user.email, password } });
 });
 
 app.put('/api/users/:id/role', requireStaff, (req, res) => {
+  if (!canManageStaffAccounts(req.session.role)) {
+    return res.status(403).json({ success: false, message: 'Seul l’administrateur ou le directeur peut changer un rôle.' });
+  }
   const db = load(req);
   const user = db.users.find((item) => item.id === req.params.id);
   if (!user) return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
@@ -1796,6 +1858,9 @@ app.put('/api/users/:id/role', requireStaff, (req, res) => {
 });
 
 app.delete('/api/users/:id', requireStaff, (req, res) => {
+  if (!canManageStaffAccounts(req.session.role)) {
+    return res.status(403).json({ success: false, message: 'Seul l’administrateur ou le directeur peut supprimer un compte.' });
+  }
   const db = load(req);
   const user = db.users.find((item) => item.id === req.params.id);
   if (!user) return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
@@ -2252,8 +2317,24 @@ app.use((req, res) => {
   });
 });
 
+function hashStoredPasswords() {
+  const db = loadAll();
+  let changed = 0;
+  (db.users || []).forEach((user) => {
+    if (user.password && !looksHashed(user.password)) {
+      user.password = hashPassword(user.password);
+      changed += 1;
+    }
+  });
+  if (changed) {
+    saveAll(db);
+    console.log(`Comptes protégés : ${changed} mot(s) de passe chiffré(s)`);
+  }
+}
+
 async function start() {
   await boot();
+  hashStoredPasswords();
   sessions = readSessionMap();
   const server = app.listen(PORT, HOST, () => {
     console.log(`SERVEUR KELASSI MODERNE — http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT} (${HOST})`);

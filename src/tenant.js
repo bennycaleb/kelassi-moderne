@@ -1,4 +1,5 @@
 const { load: loadAll, save: saveAll, id, now, defaultCycles, defaultEvaluationTypes, cycleIdFromLevel } = require('./store');
+const { hashPassword } = require('./passwords');
 
 const CYCLE_ORDER = ['primaire', 'college', 'lycee', 'universite'];
 
@@ -197,7 +198,7 @@ function createTenant({ name, city, address, phone, adminName, adminEmail, admin
   db.users.push({
     id: adminId,
     email,
-    password,
+    password: hashPassword(password),
     role: 'admin',
     name: String(adminName || 'Administrateur').trim() || 'Administrateur',
     schoolId,
