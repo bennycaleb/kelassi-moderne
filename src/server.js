@@ -950,7 +950,7 @@ app.delete('/api/classes/:id', requireStaff, (req, res) => {
 
 app.get('/api/subjects', requireAuth, (req, res) => {
   const db = load(req);
-  return res.json({ success: true, subjects: db.subjects });
+  return res.json({ success: true, subjects: db.subjects || [] });
 });
 
 app.post('/api/subjects', requireStaff, (req, res) => {
