@@ -148,6 +148,7 @@ const DIRECTOR_GROUPS = [
       { to: '/dashboard/users', label: 'Utilisateurs & droits', section: 'users' },
       { to: '/dashboard/secretaries', label: 'Secrétariat', section: 'secretaries' },
       { to: '/dashboard/supervisors', label: 'Surveillants', section: 'supervisors' },
+      { to: '/dashboard/intendants', label: 'Intendance', section: 'intendants' },
       { to: '/dashboard/settings', label: 'Paramètres', section: 'settings' },
       { to: '/dashboard/life/reports', label: 'Signalements', section: 'watch-reports' }
     ]

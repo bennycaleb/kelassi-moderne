@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../../components/Modal';
+import { refreshSchoolMeta } from '../../context/SchoolContext';
 import { api } from '../../services/api';
 
 function Directors() {
@@ -34,6 +35,7 @@ function Directors() {
       setCredentials(result.credentials);
       setOpen(false);
       await refresh();
+      refreshSchoolMeta();
     } catch (err) {
       setError(err.message);
     }
@@ -54,7 +56,7 @@ function Directors() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>D.E. — Direction de l’établissement</h1>
-          <p>Vous pouvez créer <b>plusieurs D.E.</b> Ils voient tout le lycée : élèves, enseignants, pédagogie, finances, utilisateurs. L’admin, le secrétariat et les surveillants restent en place.</p>
+          <p>Optionnel. Créez un D.E. seulement si votre école a une direction d’établissement. L’admin reste en place. Vous pouvez en créer <b>plusieurs</b>.</p>
         </div>
         {canManage && <button type="button" className="btn" onClick={openCreate}>➕ Ajouter un D.E.</button>}
       </div>
@@ -94,6 +96,7 @@ function Directors() {
                               if (!window.confirm(`Supprimer le compte de ${user.name} ?`)) return;
                               await api(`/api/users/${user.id}`, { method: 'DELETE' });
                               refresh();
+                              refreshSchoolMeta();
                             }}
                           >
                             Supprimer

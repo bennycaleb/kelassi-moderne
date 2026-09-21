@@ -102,7 +102,7 @@ export function canSee(role, section) {
     return [
       'direction', 'students', 'teachers', 'classes', 'subjects', 'courses', 'timetable',
       'grades', 'academic', 'communication', 'payments', 'users', 'secretaries', 'supervisors',
-      'settings', 'watch-reports', 'infrastructure'
+      'intendants', 'settings', 'watch-reports', 'infrastructure'
     ].includes(section);
   }
   if (role === 'secretary') {

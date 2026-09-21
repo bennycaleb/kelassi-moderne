@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../../components/Modal';
+import { refreshSchoolMeta } from '../../context/SchoolContext';
 import { api } from '../../services/api';
 
 function Secretaries() {
@@ -34,6 +35,7 @@ function Secretaries() {
       setCredentials(result.credentials);
       setOpen(false);
       await refresh();
+      refreshSchoolMeta();
     } catch (err) {
       setError(err.message);
     }
@@ -54,7 +56,7 @@ function Secretaries() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Secrétariat</h1>
-          <p>Vous pouvez créer <b>plusieurs secrétaires</b>. Ils travaillent tous sur la même école : si l’une inscrit un élève, l’autre le voit tout de suite dans la liste.</p>
+          <p>Optionnel. Créez un secrétariat seulement si votre école en a un. Vous pouvez en créer <b>plusieurs</b> : ils voient les mêmes élèves et les mêmes dossiers.</p>
         </div>
         {canManage && <button type="button" className="btn" onClick={openCreate}>➕ Ajouter un secrétaire</button>}
       </div>
@@ -94,6 +96,7 @@ function Secretaries() {
                               if (!window.confirm(`Supprimer le compte de ${user.name} ?`)) return;
                               await api(`/api/users/${user.id}`, { method: 'DELETE' });
                               refresh();
+                              refreshSchoolMeta();
                             }}
                           >
                             Supprimer

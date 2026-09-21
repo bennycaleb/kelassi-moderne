@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../../components/Modal';
 import { ROLE_LABELS } from '../../constants';
+import { refreshSchoolMeta } from '../../context/SchoolContext';
 import { api } from '../../services/api';
 
 function UsersPage() {
@@ -34,6 +35,7 @@ function UsersPage() {
       setCredentials(result.credentials);
       setOpen(false);
       await refresh();
+      refreshSchoolMeta();
     } catch (err) {
       setError(err.message);
     }
@@ -54,7 +56,7 @@ function UsersPage() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Utilisateurs & rôles</h1>
-          <p>Pour créer un D.E., ouvrez <b>D.E.</b>. Pour un intendant, <b>Intendance</b>. Pour un secrétaire, <b>Secrétariat</b>. Pour un surveillant, <b>Surveillants</b>.</p>
+          <p>Pour créer un D.E., ouvrez <b>D.E.</b>. Pour un intendant, <b>Intendance</b>. Pour un secrétaire, <b>Secrétariat</b>. Pour un surveillant, <b>Surveillants</b>. Ce n’est pas obligatoire : créez seulement si votre école a ce poste.</p>
         </div>
         {canCreate && (
           <button type="button" className="btn" onClick={openCreate}>➕ Ajouter un secrétaire</button>
@@ -76,7 +78,7 @@ function UsersPage() {
                 <td>{user.name}</td>
                 <td>{user.email}</td>
                 <td>
-                  <select value={user.role} onChange={async (event) => { await api(`/api/users/${user.id}/role`, { method: 'PUT', body: { role: event.target.value } }); refresh(); }}>
+                  <select value={user.role} onChange={async (event) => { await api(`/api/users/${user.id}/role`, { method: 'PUT', body: { role: event.target.value } }); refresh(); refreshSchoolMeta(); }}>
                     {Object.keys(ROLE_LABELS).filter((role) => {
                       if (role === 'owner') return false;
                       if (current.role === 'director') {
@@ -99,6 +101,7 @@ function UsersPage() {
                           if (!window.confirm(`Supprimer le compte de ${user.name} ?`)) return;
                           await api(`/api/users/${user.id}`, { method: 'DELETE' });
                           refresh();
+                          refreshSchoolMeta();
                         }}
                       >
                         Supprimer

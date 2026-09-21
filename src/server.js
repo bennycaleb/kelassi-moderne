@@ -481,7 +481,13 @@ app.get('/api/meta', requireAuth, (req, res) => {
     cycles: db.cycles || [],
     evaluationTypes: db.evaluationTypes || [],
     teachers: db.teachers.map((item) => school.withTeacher(db, item)),
-    roles: STAFF.concat(['teacher', 'student', 'parent'])
+    roles: STAFF.concat(['teacher', 'student', 'parent']),
+    org: {
+      director: (db.users || []).filter((item) => item.role === 'director').length,
+      secretary: (db.users || []).filter((item) => item.role === 'secretary').length,
+      supervisor: (db.users || []).filter((item) => item.role === 'supervisor').length,
+      intendant: (db.users || []).filter((item) => item.role === 'intendant').length
+    }
   });
 });
 

@@ -50,7 +50,7 @@ export function SchoolProvider({ children }) {
   }, [year]);
 
   return (
-    <SchoolContext.Provider value={{ year, setYear, meta, settings: meta?.settings, classes: meta?.classes || [], subjects: meta?.subjects || [], teachers: meta?.teachers || [], cycles: meta?.cycles || [], evaluationTypes: meta?.evaluationTypes || [], years: meta?.years || ['2025-2026', '2026-2027', '2027-2028'] }}>
+    <SchoolContext.Provider value={{ year, setYear, meta, settings: meta?.settings, classes: meta?.classes || [], subjects: meta?.subjects || [], teachers: meta?.teachers || [], cycles: meta?.cycles || [], evaluationTypes: meta?.evaluationTypes || [], years: meta?.years || ['2025-2026', '2026-2027', '2027-2028'], org: meta?.org || { director: 0, secretary: 0, supervisor: 0, intendant: 0 } }}>
       {children}
     </SchoolContext.Provider>
   );
@@ -61,5 +61,5 @@ export function refreshSchoolMeta() {
 }
 
 export function useSchool() {
-  return useContext(SchoolContext) || { year: '2026-2027', setYear: () => {}, classes: [], subjects: [], teachers: [], cycles: [], evaluationTypes: [], years: ['2026-2027'], settings: {} };
+  return useContext(SchoolContext) || { year: '2026-2027', setYear: () => {}, classes: [], subjects: [], teachers: [], cycles: [], evaluationTypes: [], years: ['2026-2027'], settings: {}, org: { director: 0, secretary: 0, supervisor: 0, intendant: 0 } };
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../../components/Modal';
+import { refreshSchoolMeta } from '../../context/SchoolContext';
 import { api } from '../../services/api';
 
 function Supervisors() {
@@ -34,6 +35,7 @@ function Supervisors() {
       setCredentials(result.credentials);
       setOpen(false);
       await refresh();
+      refreshSchoolMeta();
     } catch (err) {
       setError(err.message);
     }
@@ -54,7 +56,7 @@ function Supervisors() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Surveillants</h1>
-          <p>Le surveillant travaille dans <b>Vie scolaire</b> : scan à l’entrée, présences, retards, incidents, convocations et rapports pour la direction.</p>
+          <p>Optionnel. Créez un surveillant seulement si votre école a ce poste. Il travaille dans <b>Vie scolaire</b> : scan à l’entrée, incidents, convocations et rapports.</p>
         </div>
         {canManage && <button type="button" className="btn" onClick={openCreate}>➕ Ajouter un surveillant</button>}
       </div>
@@ -94,6 +96,7 @@ function Supervisors() {
                               if (!window.confirm(`Supprimer le compte de ${user.name} ?`)) return;
                               await api(`/api/users/${user.id}`, { method: 'DELETE' });
                               refresh();
+                              refreshSchoolMeta();
                             }}
                           >
                             Supprimer

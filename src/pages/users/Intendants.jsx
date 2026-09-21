@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../../components/Modal';
+import { refreshSchoolMeta } from '../../context/SchoolContext';
 import { api } from '../../services/api';
 
 function Intendants() {
@@ -34,6 +35,7 @@ function Intendants() {
       setCredentials(result.credentials);
       setOpen(false);
       await refresh();
+      refreshSchoolMeta();
     } catch (err) {
       setError(err.message);
     }
@@ -54,7 +56,7 @@ function Intendants() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Intendance</h1>
-          <p>Vous pouvez créer <b>plusieurs intendants</b>. Ils gèrent le budget, les achats, le matériel et les locaux, avec la direction. L’admin, le D.E., le secrétariat et les surveillants restent en place.</p>
+          <p>Optionnel. Créez un intendant seulement si votre école a ce poste. Il gère budget, achats, matériel et locaux. L’admin reste en place.</p>
         </div>
         {canManage && <button type="button" className="btn" onClick={openCreate}>➕ Ajouter un intendant</button>}
       </div>
@@ -94,6 +96,7 @@ function Intendants() {
                               if (!window.confirm(`Supprimer le compte de ${user.name} ?`)) return;
                               await api(`/api/users/${user.id}`, { method: 'DELETE' });
                               refresh();
+                              refreshSchoolMeta();
                             }}
                           >
                             Supprimer
