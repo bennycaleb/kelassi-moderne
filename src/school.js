@@ -296,6 +296,15 @@ function withAttendance(db, item) {
   };
 }
 
+function withConvocation(db, item) {
+  const student = studentById(db, item.studentId);
+  return {
+    ...item,
+    studentName: fullName(student),
+    className: classNameOf(db, student)
+  };
+}
+
 function attachChild(parent, studentId) {
   if (!parent || !studentId) return false;
   const ids = parent.childrenIds || [];
@@ -668,6 +677,7 @@ function studentFiche(db, student, year) {
   const sanctions = db.sanctions.filter((item) => item.studentId === student.id && inYear(item, year));
   const timetable = db.timetable.filter((item) => item.classId === student.classId && inYear(item, year)).map((item) => withSlot(db, item));
   const documents = (db.documents || []).filter((item) => item.studentId === student.id && inYear(item, year));
+  const convocations = (db.convocations || []).filter((item) => item.studentId === student.id && inYear(item, year)).map((item) => withConvocation(db, item));
   const parents = parentsOf(db, student.id);
   const average = averageOf(grades);
   const rank = rankingOf(db, student, year);
@@ -693,6 +703,7 @@ function studentFiche(db, student, year) {
     sanctions,
     timetable,
     documents,
+    convocations,
     parents,
     history,
     absences: attendance.filter((item) => item.status === 'absent').length,
@@ -751,6 +762,7 @@ module.exports = {
   endTimeOf,
   withSlot,
   withAttendance,
+  withConvocation,
   clockLabel,
   punchLine,
   applyFacePunch,

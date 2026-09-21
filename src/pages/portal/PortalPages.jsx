@@ -112,6 +112,7 @@ export function StudentHome() {
         <div className="stat-card panel"><h3>📊 Ma moyenne</h3><p><b>{fiche.average || '—'}/20</b></p></div>
         <div className="stat-card panel"><h3>🏆 Mon rang</h3><p><b>{fiche.ranking?.rankLabel || '—'}</b>{fiche.ranking?.total ? ` / ${fiche.ranking.total}` : ''}</p></div>
         <div className="stat-card panel"><h3>🕐 Mes absences</h3><p><b>{fiche.absences || 0}</b></p></div>
+        <div className="stat-card panel"><h3>📨 Convocations</h3><p><b>{(fiche.convocations || []).length}</b></p></div>
         <div className="stat-card panel"><h3>💰 Ma scolarité</h3><p><b>{fiche.tuition?.statusLabel || '—'}</b>{fiche.tuition?.due ? ` · reste ${fiche.tuition.due}` : fiche.paidPercent ? ` · ${fiche.paidPercent} %` : ''}</p></div>
       </div>
       <div className="grid-two">
@@ -142,6 +143,15 @@ export function StudentHome() {
           {data.announcements.map((item) => <p key={item.id}>{item.title} — {item.body}</p>)}
         </div>
       </div>
+      {(fiche.convocations || []).length > 0 && (
+        <div className="panel">
+          <h2>📨 Mes convocations</h2>
+          {(fiche.convocations || []).map((item) => (
+            <p key={item.id}>{item.date}{item.time ? ` à ${item.time}` : ''} — {item.reason}{item.createdByName ? ` (par ${item.createdByName})` : ''}</p>
+          ))}
+          <Link className="btn btn-secondary btn-sm" to="/student/convocations">Voir tout</Link>
+        </div>
+      )}
       <div className="panel">
         <h2>📄 Mes documents</h2>
         <div className="row-actions">
@@ -191,6 +201,7 @@ function ChildFiche({ fiche }) {
         <div className="stat-card panel"><h3>📊 Moyenne</h3><p><b>{fiche.average || '—'}/20</b></p></div>
         <div className="stat-card panel"><h3>🏆 Rang</h3><p><b>{fiche.ranking?.rankLabel || '—'}</b>{fiche.ranking?.total ? ` / ${fiche.ranking.total}` : ''}</p></div>
         <div className="stat-card panel"><h3>🕐 Absences</h3><p><b>{fiche.absences || 0}</b> · {fiche.lates || 0} retard(s)</p></div>
+        <div className="stat-card panel"><h3>📨 Convocations</h3><p><b>{(fiche.convocations || []).length}</b></p></div>
         <div className="stat-card panel"><h3>💰 Scolarité</h3><p><b>{fiche.tuition?.statusLabel || 'Non renseigné'}</b>{fiche.tuition?.due ? ` · reste ${fiche.tuition.due}` : ''}</p></div>
       </div>
       <div className="grid-two">
@@ -229,6 +240,14 @@ function ChildFiche({ fiche }) {
             ? (fiche.payments || []).map((item) => <p key={item.id}>{item.feeType} — {money(item.amount)} ({item.status})</p>)
             : <p>Aucun paiement enregistré.</p>}
         </div>
+      </div>
+      <div className="panel">
+        <h2>Convocations</h2>
+        {(fiche.convocations || []).length
+          ? (fiche.convocations || []).map((item) => (
+            <p key={item.id}>{item.date}{item.time ? ` à ${item.time}` : ''} — {item.reason}{item.createdByName ? ` (par ${item.createdByName})` : ''}</p>
+          ))
+          : <p>Aucune convocation pour le moment.</p>}
       </div>
       <div className="panel">
         <h2>Documents</h2>
@@ -324,6 +343,33 @@ export function PaymentsList() {
             {item.status === 'payé' && <a href={`/print/receipt?paymentId=${item.id}&studentId=${item.studentId}`} target="_blank" rel="noreferrer">Reçu PDF</a>}
           </p>
         ))}
+      </div>
+    </PortalShell>
+  );
+}
+
+export function ConvocationsList({ title = 'Convocations' }) {
+  const [items, setItems] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    api('/api/convocations').then((data) => setItems(data.convocations || [])).catch((err) => setError(err.message));
+  }, []);
+  if (error) return <p className="error">{error}</p>;
+  if (!items) return <p>Chargement…</p>;
+  return (
+    <PortalShell title={title}>
+      <div className="panel">
+        {items.length === 0
+          ? <p>Aucune convocation pour le moment.</p>
+          : items.map((item) => (
+            <p key={item.id}>
+              {item.date}{item.time ? ` à ${item.time}` : ''}
+              {item.studentName ? ` — ${item.studentName}` : ''}
+              {item.className ? ` (${item.className})` : ''}
+              {' : '}{item.reason}
+              {item.createdByName ? ` (par ${item.createdByName})` : ''}
+            </p>
+          ))}
       </div>
     </PortalShell>
   );

@@ -10,6 +10,7 @@ function ParentLayout({ user, logout, children }) {
         <nav>
           <NavLink to="/parent" end>Mes enfants</NavLink>
           <NavLink to="/parent/attendance">Présences</NavLink>
+          <NavLink to="/parent/convocations">Convocations</NavLink>
           <NavLink to="/parent/grades">Notes</NavLink>
           <NavLink to="/parent/timetable">Emploi du temps</NavLink>
           <NavLink to="/parent/work">Cours & devoirs</NavLink>

@@ -1,6 +1,6 @@
 const school = require('./school');
 
-const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant'];
+const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant', 'supervisor'];
 const askBuckets = new Map();
 let groqWorkingModel = '';
 
@@ -185,7 +185,7 @@ function visibleStaff(db, session) {
   if (!STAFF.includes(session.role)) return [];
   const labels = {
     owner: 'Entreprise Kelassi', superadmin: 'Super Admin', admin: 'Administrateur',
-    director: 'Directeur', secretary: 'Secrétaire', accountant: 'Comptable'
+    director: 'Directeur', secretary: 'Secrétaire', accountant: 'Comptable', supervisor: 'Surveillant'
   };
   return (db.users || [])
     .filter((user) => STAFF.includes(user.role))

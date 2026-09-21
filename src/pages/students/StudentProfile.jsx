@@ -15,6 +15,7 @@ const TABS = [
   { id: 'parents', label: 'Parents / tuteurs' },
   { id: 'notes', label: 'Notes' },
   { id: 'presences', label: 'Présences' },
+  { id: 'convocations', label: 'Convocations' },
   { id: 'paiements', label: 'Paiements' },
   { id: 'dossier', label: 'Dossier d’inscription' },
   { id: 'documents', label: 'Documents' },
@@ -51,7 +52,7 @@ function StudentProfile() {
   if (error) return <p className="error">{error}</p>;
   if (!data) return <p>Chargement de la fiche…</p>;
 
-  const { student, grades, subjects, average, ranking, appreciation, decision, payments, paidPercent, tuition, attendance, absences, lates, presenceRate, parents, history, timetable } = data;
+  const { student, grades, subjects, average, ranking, appreciation, decision, payments, paidPercent, tuition, attendance, absences, lates, presenceRate, parents, history, timetable, convocations } = data;
   const currency = settings?.currency || 'FCFA';
 
   async function reload() {
@@ -209,6 +210,16 @@ function StudentProfile() {
               </tr>
             ))}</tbody>
           </table>
+        </div>
+      )}
+
+      {tab === 'convocations' && (
+        <div className="panel">
+          {(convocations || []).length === 0
+            ? <p>Aucune convocation pour cet élève.</p>
+            : (convocations || []).map((item) => (
+              <p key={item.id}>{item.date}{item.time ? ` à ${item.time}` : ''} — {item.reason}{item.createdByName ? ` (par ${item.createdByName})` : ''}</p>
+            ))}
         </div>
       )}
 

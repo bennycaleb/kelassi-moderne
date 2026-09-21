@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import Avatar from '../../components/Avatar';
 import PresenceMark from '../../components/PresenceMark';
 import { ATTENDANCE_STATUSES } from '../../constants';
@@ -6,6 +7,16 @@ import { useSchool } from '../../context/SchoolContext';
 import { api } from '../../services/api';
 
 function Attendance() {
+  const current = (() => {
+    try { return JSON.parse(localStorage.getItem('kelassi_user') || '{}'); } catch { return {}; }
+  })();
+  if (current.role === 'supervisor') {
+    return <Navigate to="/dashboard/face" replace />;
+  }
+  return <AttendanceBoard />;
+}
+
+function AttendanceBoard() {
   const { year, classes } = useSchool();
   const [classId, setClassId] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));

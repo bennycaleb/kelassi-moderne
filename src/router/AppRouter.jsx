@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { roleHome } from '../constants';
+import { roleHome, STAFF_ROLES } from '../constants';
 import { api } from '../services/api';
 
 import Login from '../pages/Login';
@@ -31,15 +31,17 @@ import SettingsPage from '../pages/settings/Settings';
 import AiDesk from '../pages/ai/AiDesk';
 import UsersPage from '../pages/users/Users';
 import Secretaries from '../pages/users/Secretaries';
+import Supervisors from '../pages/users/Supervisors';
 import AcademicConfig from '../pages/academic/AcademicConfig';
 import TeacherEvaluations from '../pages/academic/TeacherEvaluations';
 import OwnerLayout from '../layout/OwnerLayout';
 import Tenants from '../pages/owner/Tenants';
 import StudentWork from '../pages/work/StudentWork';
 import TeacherWork from '../pages/work/TeacherWork';
-import StudentHome, { TeacherHome, ParentHome, SimpleList, PaymentsList, StudentAbsences, StudentDocuments, ParentDocuments, TeacherMessages } from '../pages/portal/PortalPages';
+import Convocations from '../pages/convocations/Convocations';
+import StudentHome, { TeacherHome, ParentHome, SimpleList, PaymentsList, StudentAbsences, StudentDocuments, ParentDocuments, TeacherMessages, ConvocationsList } from '../pages/portal/PortalPages';
 
-const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant'];
+const STAFF = STAFF_ROLES;
 
 function AppRouter() {
   const [user, setUser] = useState(null);
@@ -133,6 +135,7 @@ function AppRouter() {
                 <Route path="timetable" element={<Timetable />} />
                 <Route path="attendance" element={<Attendance />} />
                 <Route path="face" element={<FaceAttendance />} />
+                <Route path="convocations" element={<Convocations />} />
                 <Route path="grades" element={<Grades />} />
                 <Route path="evaluations" element={<TeacherEvaluations />} />
                 <Route path="academic" element={<AcademicConfig />} />
@@ -141,6 +144,7 @@ function AppRouter() {
                 <Route path="parents" element={<Parents />} />
                 <Route path="communication" element={<Communication />} />
                 <Route path="secretaries" element={<Secretaries />} />
+                <Route path="supervisors" element={<Supervisors />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="ai" element={<AiDesk />} />
@@ -190,6 +194,7 @@ function AppRouter() {
                 <Route path="grades" element={<SimpleList title="📝 Mes notes" path="/api/grades" field="grades" line={(item) => `${item.courseTitle} (${item.type || item.label}) : ${item.score}/20`} />} />
                 <Route path="timetable" element={<SimpleList title="📅 Mon emploi du temps" path="/api/timetable" field="timetable" line={(item) => `${item.day} ${item.startTime}–${item.endTime} — ${item.subjectName} (${item.room})`} />} />
                 <Route path="absences" element={<StudentAbsences />} />
+                <Route path="convocations" element={<ConvocationsList title="Mes convocations" />} />
                 <Route path="payments" element={<PaymentsList />} />
                 <Route path="documents" element={<StudentDocuments />} />
                 <Route path="announcements" element={<SimpleList title="📢 Annonces" path="/api/announcements" field="announcements" line={(item) => `${item.title} — ${item.body}`} />} />
@@ -210,6 +215,7 @@ function AppRouter() {
                 <Route index element={<ParentHome />} />
                 <Route path="grades" element={<SimpleList title="Notes" path="/api/grades" field="grades" line={(item) => `${item.studentName} — ${item.courseTitle} : ${item.score}/20`} />} />
                 <Route path="attendance" element={<StudentAbsences title="Présences de vos enfants" />} />
+                <Route path="convocations" element={<ConvocationsList title="Convocations" />} />
                 <Route path="timetable" element={<SimpleList title="Emploi du temps" path="/api/timetable" field="timetable" line={(item) => `${item.day} ${item.startTime} — ${item.subjectName} (${item.className})`} />} />
                 <Route path="work" element={<StudentWork readOnly />} />
                 <Route path="payments" element={<PaymentsList />} />

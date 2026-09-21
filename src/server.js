@@ -17,7 +17,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 5001);
 const HOST = process.env.HOST || '0.0.0.0';
 const DIST_DIR = path.join(__dirname, '..', 'dist');
-const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant'];
+const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant', 'supervisor'];
 
 function allowedOrigins() {
   const extra = String(process.env.FRONTEND_URL || process.env.APP_URL || '')
@@ -716,6 +716,75 @@ app.delete('/api/sanctions/:id', requireStaff, (req, res) => {
   return res.json({ success: true, message: 'Sanction supprimée' });
 });
 
+function canManageConvocations(role) {
+  return ['admin', 'superadmin', 'director', 'secretary', 'supervisor'].includes(role);
+}
+
+app.get('/api/convocations', requireAuth, (req, res) => {
+  const db = load(req);
+  const year = school.yearOf(req, db);
+  db.convocations = db.convocations || [];
+  let items = db.convocations.filter((item) => school.inYear(item, year));
+  if (req.session.role === 'student') {
+    const student = db.students.find((item) => item.userId === req.session.id);
+    items = items.filter((item) => student && item.studentId === student.id);
+  } else if (req.session.role === 'parent') {
+    const parent = db.parents.find((item) => item.userId === req.session.id);
+    const ids = parentChildIds(db, parent);
+    items = items.filter((item) => ids.includes(item.studentId));
+  } else if (!canManageConvocations(req.session.role)) {
+    return res.status(403).json({ success: false, message: 'Accès convocations refusé' });
+  }
+  items.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  return res.json({ success: true, convocations: items.map((item) => school.withConvocation(db, item)) });
+});
+
+app.post('/api/convocations', requireAuth, (req, res) => {
+  if (!canManageConvocations(req.session.role)) {
+    return res.status(403).json({ success: false, message: 'Seul le surveillant, le secrétariat ou l’administration peut convoquer.' });
+  }
+  const studentId = String(req.body.studentId || '').trim();
+  const reason = String(req.body.reason || '').trim();
+  if (!studentId || !reason) {
+    return res.status(400).json({ success: false, message: 'Élève et motif obligatoires' });
+  }
+  const db = load(req);
+  const student = db.students.find((item) => item.id === studentId);
+  if (!student) return res.status(404).json({ success: false, message: 'Étudiant introuvable' });
+  const year = school.yearOf(req, db);
+  db.convocations = db.convocations || [];
+  const convocation = {
+    id: id('conv'),
+    studentId,
+    date: req.body.date || today(),
+    time: String(req.body.time || '').trim(),
+    reason,
+    createdBy: req.session.id,
+    createdByName: req.session.name || req.session.email || '',
+    year,
+    createdAt: now()
+  };
+  db.convocations.push(convocation);
+  save(req, db);
+  return res.status(201).json({ success: true, convocation: school.withConvocation(db, convocation) });
+});
+
+app.delete('/api/convocations/:id', requireAuth, (req, res) => {
+  if (!canManageConvocations(req.session.role)) {
+    return res.status(403).json({ success: false, message: 'Suppression réservée au personnel de l’école.' });
+  }
+  const db = load(req);
+  db.convocations = db.convocations || [];
+  const before = db.convocations.length;
+  db.convocations = db.convocations.filter((item) => item.id !== req.params.id);
+  if (db.convocations.length === before) {
+    return res.status(404).json({ success: false, message: 'Convocation introuvable' });
+  }
+  save(req, db);
+  return res.json({ success: true, message: 'Convocation supprimée' });
+});
+
+
 app.delete('/api/students/:id', requireStaff, (req, res) => {
   const db = load(req);
   const student = db.students.find((item) => item.id === req.params.id);
@@ -730,6 +799,7 @@ app.delete('/api/students/:id', requireStaff, (req, res) => {
   db.payments = db.payments.filter((item) => item.studentId !== student.id);
   db.attendance = db.attendance.filter((item) => item.studentId !== student.id);
   db.sanctions = db.sanctions.filter((item) => item.studentId !== student.id);
+  db.convocations = (db.convocations || []).filter((item) => item.studentId !== student.id);
   db.parents.forEach((parent) => {
     parent.childrenIds = (parent.childrenIds || []).filter((childId) => childId !== student.id);
   });
@@ -1116,6 +1186,9 @@ app.get('/api/attendance', requireAuth, (req, res) => {
 });
 
 app.post('/api/attendance/bulk', requireAuth, (req, res) => {
+  if (req.session.role === 'supervisor') {
+    return res.status(403).json({ success: false, message: 'Le surveillant enregistre les présences uniquement par le scan visage.' });
+  }
   const db = load(req);
   const year = school.yearOf(req, db);
   const date = req.body.date || today();
@@ -1140,7 +1213,7 @@ app.post('/api/attendance/bulk', requireAuth, (req, res) => {
 
 app.post('/api/attendance/face', requireAuth, (req, res) => {
   if (!STAFF.includes(req.session.role) && req.session.role !== 'teacher') {
-    return res.status(403).json({ success: false, message: 'Seul un enseignant ou l’administration peut valider une présence faciale' });
+    return res.status(403).json({ success: false, message: 'Seul un enseignant, un surveillant ou l’administration peut valider une présence faciale' });
   }
   const db = load(req);
   const year = school.yearOf(req, db);
@@ -1793,12 +1866,14 @@ function canManageStaffAccounts(role) {
 
 app.post('/api/users', requireStaff, (req, res) => {
   if (!canManageStaffAccounts(req.session.role)) {
-    return res.status(403).json({ success: false, message: 'Seul l’administrateur ou le directeur peut créer un compte secrétaire.' });
+    return res.status(403).json({ success: false, message: 'Seul l’administrateur ou le directeur peut créer ce compte.' });
   }
   const firstName = String(req.body.firstName || '').trim();
   const lastName = String(req.body.lastName || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
-  const role = 'secretary';
+  const accountPrefixes = { secretary: 'Secretaire', supervisor: 'Surveillant' };
+  const requested = String(req.body.role || 'secretary');
+  const role = accountPrefixes[requested] ? requested : 'secretary';
   if (!firstName || !lastName || !email) {
     return res.status(400).json({ success: false, message: 'Prénom, nom et email obligatoires' });
   }
@@ -1806,7 +1881,7 @@ app.post('/api/users', requireStaff, (req, res) => {
   if (loadAll().users.some((item) => String(item.email || '').trim().toLowerCase() === email)) {
     return res.status(409).json({ success: false, message: 'Cet email a déjà un compte. Choisissez un autre email.' });
   }
-  const password = String(req.body.password || '').trim() || generatePassword('Secretaire');
+  const password = String(req.body.password || '').trim() || generatePassword(accountPrefixes[role]);
   const user = {
     id: id('u'),
     email,
@@ -1836,7 +1911,7 @@ app.post('/api/users/:id/reset-password', requireStaff, (req, res) => {
   if (user.role === 'owner') {
     return res.status(403).json({ success: false, message: 'Le compte entreprise ne peut pas être modifié ici' });
   }
-  const password = generatePassword(user.role === 'secretary' ? 'Secretaire' : 'Staff');
+  const password = generatePassword(user.role === 'secretary' ? 'Secretaire' : user.role === 'supervisor' ? 'Surveillant' : 'Staff');
   user.password = hashPassword(password);
   save(req, db);
   return res.json({ success: true, credentials: { email: user.email, password } });
@@ -1879,6 +1954,7 @@ app.delete('/api/users/:id', requireStaff, (req, res) => {
     db.payments = db.payments.filter((item) => item.studentId !== student.id);
     db.attendance = db.attendance.filter((item) => item.studentId !== student.id);
     db.sanctions = db.sanctions.filter((item) => item.studentId !== student.id);
+    db.convocations = (db.convocations || []).filter((item) => item.studentId !== student.id);
   }
   if (teacher) {
     db.teachers = db.teachers.filter((item) => item.id !== teacher.id);

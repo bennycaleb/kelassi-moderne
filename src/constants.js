@@ -45,7 +45,7 @@ export const ATTENDANCE_STATUSES = [
   { value: 'retard', label: 'Retard' }
 ];
 
-export const STAFF_ROLES = ['admin', 'superadmin', 'director', 'secretary', 'accountant'];
+export const STAFF_ROLES = ['admin', 'superadmin', 'director', 'secretary', 'accountant', 'supervisor'];
 
 export const ROLE_LABELS = {
   owner: 'Entreprise Kelassi',
@@ -54,6 +54,7 @@ export const ROLE_LABELS = {
   director: 'Directeur',
   secretary: 'Secrétaire',
   accountant: 'Comptable',
+  supervisor: 'Surveillant',
   teacher: 'Enseignant',
   student: 'Étudiant',
   parent: 'Parent'
@@ -84,6 +85,7 @@ export const DOCUMENT_TYPES = [
 
 export function roleHome(role) {
   if (role === 'owner') return '/owner';
+  if (role === 'supervisor') return '/dashboard/face';
   if (['admin', 'superadmin', 'director', 'secretary', 'accountant'].includes(role)) return '/dashboard';
   if (role === 'teacher') return '/teacher';
   if (role === 'parent') return '/parent';
@@ -93,10 +95,13 @@ export function roleHome(role) {
 export function canSee(role, section) {
   if (['admin', 'superadmin', 'director'].includes(role)) return true;
   if (role === 'secretary') {
-    return !['users', 'secretaries'].includes(section);
+    return !['users', 'secretaries', 'supervisors'].includes(section);
   }
   if (role === 'accountant') {
     return ['dashboard', 'payments', 'documents', 'settings', 'ai'].includes(section);
+  }
+  if (role === 'supervisor') {
+    return ['dashboard', 'face', 'convocations'].includes(section);
   }
   if (role === 'teacher') {
     return ['grades', 'academic'].includes(section);

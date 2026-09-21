@@ -24,7 +24,8 @@ const GROUPS = [
     label: 'Vie scolaire',
     items: [
       { to: '/dashboard/attendance', label: 'Présences', section: 'attendance' },
-      { to: '/dashboard/face', label: 'Scan visage', section: 'attendance' },
+      { to: '/dashboard/face', label: 'Scan visage', section: 'face' },
+      { to: '/dashboard/convocations', label: 'Convocations', section: 'convocations' },
       { to: '/dashboard/grades', label: 'Notes', section: 'grades' },
       { to: '/dashboard/evaluations', label: 'Évaluations', section: 'grades' },
       { to: '/dashboard/documents', label: 'Documents', section: 'documents' }
@@ -42,6 +43,7 @@ const GROUPS = [
     label: 'Administration',
     items: [
       { to: '/dashboard/secretaries', label: 'Secrétariat', section: 'secretaries' },
+      { to: '/dashboard/supervisors', label: 'Surveillants', section: 'supervisors' },
       { to: '/dashboard/users', label: 'Utilisateurs', section: 'users' },
       { to: '/dashboard/academic', label: 'Règles de notation', section: 'academic' },
       { to: '/dashboard/settings', label: 'Paramètres', section: 'settings' }

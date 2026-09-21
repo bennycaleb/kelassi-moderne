@@ -13,6 +13,7 @@ function StudentLayout({ user, logout, children }) {
           <NavLink to="/student/timetable">Emploi du temps</NavLink>
           <NavLink to="/student/grades">Mes notes</NavLink>
           <NavLink to="/student/absences">Mes absences</NavLink>
+          <NavLink to="/student/convocations">Convocations</NavLink>
           <NavLink to="/student/payments">Paiements</NavLink>
           <NavLink to="/student/documents">Documents</NavLink>
           <NavLink to="/student/announcements">Annonces</NavLink>

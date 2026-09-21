@@ -5,6 +5,10 @@ import { money } from '../../services/api';
 import { useSchool } from '../../context/SchoolContext';
 import { getAiDesk } from '../../services/ai';
 
+function currentRole() {
+  try { return JSON.parse(localStorage.getItem('kelassi_user') || '{}').role; } catch { return ''; }
+}
+
 function Bars({ items, field = 'value' }) {
   const max = Math.max(1, ...items.map((item) => Number(item[field] || 0)));
   if (!items.length) return <p className="empty-state">Pas encore de données.</p>;
@@ -27,6 +31,7 @@ function Dashboard() {
   const [aiDesk, setAiDesk] = useState(null);
   const [error, setError] = useState('');
   const currency = settings?.currency || 'FC';
+  const role = currentRole();
 
   useEffect(() => {
     setData(null);
@@ -46,10 +51,12 @@ function Dashboard() {
           <h1>Tableau de bord</h1>
           <p>{stats.students} étudiants | {stats.teachers} enseignants | {stats.classes} classes | {stats.presenceRate} % présence</p>
         </div>
-        <div className="row-actions">
-          <Link to="/dashboard/ai" className="btn btn-secondary">Kelassi IA</Link>
-          <Link to="/dashboard/students" className="btn">Inscrire un étudiant</Link>
-        </div>
+        {role !== 'supervisor' && (
+          <div className="row-actions">
+            <Link to="/dashboard/ai" className="btn btn-secondary">Kelassi IA</Link>
+            <Link to="/dashboard/students" className="btn">Inscrire un étudiant</Link>
+          </div>
+        )}
       </div>
       {stats.students === 0 && (
         <div className="credentials-box">
