@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import Avatar from '../../components/Avatar';
 import EnrollmentDocsField from '../../components/EnrollmentDocs';
 import PresenceMark from '../../components/PresenceMark';
-import { DOCUMENT_TYPES, FEE_TYPES, PAYMENT_METHODS } from '../../constants';
+import { DOCUMENT_TYPES, FEE_TYPES, PAYMENT_METHODS, canCorrectBulletin } from '../../constants';
+import { updateGrade } from '../../services/grade';
 import { useSchool } from '../../context/SchoolContext';
 import { api, money } from '../../services/api';
 import { createPayment, settlePayment, updatePayment } from '../../services/payment';
@@ -36,6 +37,13 @@ function StudentProfile() {
   const [linkParentId, setLinkParentId] = useState('');
   const [pendingDocs, setPendingDocs] = useState([]);
   const [docError, setDocError] = useState('');
+  const [gradeDrafts, setGradeDrafts] = useState({});
+  const [gradeMessage, setGradeMessage] = useState('');
+  const [gradeSaving, setGradeSaving] = useState(false);
+  const role = (() => {
+    try { return JSON.parse(localStorage.getItem('kelassi_user') || '{}').role; } catch { return ''; }
+  })();
+  const canCorrect = canCorrectBulletin(role);
   const [payForm, setPayForm] = useState({
     amount: '',
     method: PAYMENT_METHODS[0],
@@ -48,6 +56,11 @@ function StudentProfile() {
     api(`/api/students/${id}`).then(setData).catch((err) => setError(err.message));
     api('/api/parents').then((payload) => setParentAccounts(payload.parents || [])).catch(() => {});
   }, [id, year]);
+
+  useEffect(() => {
+    if (!data?.grades) return;
+    setGradeDrafts(Object.fromEntries(data.grades.map((grade) => [grade.id, String(grade.score)])));
+  }, [data]);
 
   if (error) return <p className="error">{error}</p>;
   if (!data) return <p>Chargement de la fiche…</p>;
@@ -154,7 +167,11 @@ function StudentProfile() {
 
       {tab === 'notes' && (
         <div className="panel">
-          <p>Moyenne générale <b>{average || '—'}/20</b> — {appreciation}</p>
+          <p>Moyenne générale <b>{average || '—'}/20</b> — {appreciation}{ranking?.rankLabel ? ` · Rang ${ranking.rankLabel}` : ''}</p>
+          {canCorrect && (
+            <p>Le D.E. et le proviseur peuvent recoriger une note. La moyenne, le rang et le bulletin se recalculent automatiquement.</p>
+          )}
+          {gradeMessage && <div className="credentials-box">{gradeMessage}</div>}
           <div className="row-actions" style={{ marginBottom: 12 }}>
             <button
               type="button"
@@ -186,11 +203,90 @@ function StudentProfile() {
             <thead><tr><th>Matière</th><th>Évaluation</th><th>Trimestre</th><th>Note</th><th>Coef.</th><th></th></tr></thead>
             <tbody>{grades.map((grade) => (
               <tr key={grade.id}>
-                <td>{grade.courseTitle}</td><td>{grade.type || grade.label}</td><td>{grade.term}</td><td>{grade.score}/20</td><td>{grade.coefficient}</td>
-                <td><button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm('Supprimer cette note ?')) return; await api(`/api/grades/${grade.id}`, { method: 'DELETE' }); reload(); }}>Supprimer</button></td>
+                <td>{grade.courseTitle}</td>
+                <td>{grade.type || grade.label}</td>
+                <td>{grade.term}</td>
+                <td>
+                  {canCorrect ? (
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      step="0.1"
+                      value={gradeDrafts[grade.id] ?? grade.score}
+                      onChange={(event) => setGradeDrafts((current) => ({ ...current, [grade.id]: event.target.value }))}
+                      style={{ width: 80 }}
+                    />
+                  ) : `${grade.score}/20`}
+                </td>
+                <td>{grade.coefficient}</td>
+                <td className="row-actions">
+                  {canCorrect && Number(gradeDrafts[grade.id]) !== Number(grade.score) && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={gradeSaving}
+                      onClick={async () => {
+                        const score = Number(gradeDrafts[grade.id]);
+                        if (Number.isNaN(score) || score < 0 || score > 20) {
+                          setGradeMessage('La note doit être entre 0 et 20.');
+                          return;
+                        }
+                        setGradeSaving(true);
+                        setGradeMessage('');
+                        try {
+                          const result = await updateGrade(grade.id, { score });
+                          setGradeMessage(result.message || 'Note corrigée. Le bulletin a été recalculé.');
+                          await reload();
+                        } catch (err) {
+                          setGradeMessage(err.message);
+                        } finally {
+                          setGradeSaving(false);
+                        }
+                      }}
+                    >
+                      Corriger
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm('Supprimer cette note ?')) return; await api(`/api/grades/${grade.id}`, { method: 'DELETE' }); reload(); }}>Supprimer</button>
+                </td>
               </tr>
             ))}</tbody>
           </table>
+          {canCorrect && grades.some((grade) => Number(gradeDrafts[grade.id]) !== Number(grade.score)) && (
+            <div className="modal-actions" style={{ marginTop: 12 }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={gradeSaving}
+                onClick={async () => {
+                  const changes = grades.filter((grade) => Number(gradeDrafts[grade.id]) !== Number(grade.score));
+                  for (const grade of changes) {
+                    const score = Number(gradeDrafts[grade.id]);
+                    if (Number.isNaN(score) || score < 0 || score > 20) {
+                      setGradeMessage('Chaque note doit être entre 0 et 20.');
+                      return;
+                    }
+                  }
+                  setGradeSaving(true);
+                  setGradeMessage('');
+                  try {
+                    for (const grade of changes) {
+                      await updateGrade(grade.id, { score: Number(gradeDrafts[grade.id]) });
+                    }
+                    setGradeMessage('Notes corrigées. La moyenne, le rang et le bulletin sont recalculés.');
+                    await reload();
+                  } catch (err) {
+                    setGradeMessage(err.message);
+                  } finally {
+                    setGradeSaving(false);
+                  }
+                }}
+              >
+                Enregistrer et recalculer le bulletin
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { GRADE_LABELS, TERMS } from '../../constants';
+import { GRADE_LABELS, TERMS, canCorrectBulletin } from '../../constants';
 import { useSchool } from '../../context/SchoolContext';
 import { api } from '../../services/api';
-import { deleteGrade, getGrades } from '../../services/grade';
+import { deleteGrade, getGrades, updateGrade } from '../../services/grade';
 import { getStudents } from '../../services/student';
 import { getCourses } from '../../services/course';
 
@@ -20,6 +20,11 @@ function Grades() {
   const [coefficient, setCoefficient] = useState('2');
   const [scores, setScores] = useState({});
   const [message, setMessage] = useState('');
+  const [drafts, setDrafts] = useState({});
+  const role = (() => {
+    try { return JSON.parse(localStorage.getItem('kelassi_user') || '{}').role; } catch { return ''; }
+  })();
+  const canCorrect = canCorrectBulletin(role);
 
   const classCourses = useMemo(
     () => courses.filter((item) => !classId || item.classId === classId),
@@ -55,6 +60,7 @@ function Grades() {
       getCourses()
     ]);
     setGrades(gradeData.grades);
+    setDrafts(Object.fromEntries((gradeData.grades || []).map((grade) => [grade.id, String(grade.score)])));
     setAverage(gradeData.average || 0);
     setStudents(studentData.students);
     setCourses(courseData.courses);
@@ -106,7 +112,10 @@ function Grades() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Notes</h1>
-          <p>Classe → Matière → Évaluation. Moyenne calculée : <b>{liveAverage || '—'}/20</b></p>
+          <p>
+            Classe → Matière → Évaluation. Moyenne calculée : <b>{liveAverage || '—'}/20</b>
+            {canCorrect ? ' Le D.E. et le proviseur peuvent recoriger une note : le bulletin se recalcule tout seul.' : ''}
+          </p>
         </div>
         {classId && <a className="btn btn-secondary" href={`/print/bulletin?classId=${classId}`} target="_blank" rel="noreferrer">Générer les bulletins</a>}
       </div>
@@ -198,9 +207,41 @@ function Grades() {
                 <td>{grade.courseTitle}</td>
                 <td>{grade.type || grade.label}</td>
                 <td>{grade.term}</td>
-                <td><b>{grade.score}/20</b></td>
+                <td>
+                  {canCorrect ? (
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      step="0.1"
+                      value={drafts[grade.id] ?? grade.score}
+                      onChange={(event) => setDrafts((current) => ({ ...current, [grade.id]: event.target.value }))}
+                      style={{ width: 80 }}
+                    />
+                  ) : <b>{grade.score}/20</b>}
+                </td>
                 <td>{grade.coefficient}</td>
-                <td><button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm('Supprimer cette note ?')) return; await deleteGrade(grade.id); refresh(); }}>Supprimer</button></td>
+                <td className="row-actions">
+                  {canCorrect && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={async () => {
+                        const score = Number(drafts[grade.id]);
+                        if (Number.isNaN(score) || score < 0 || score > 20) {
+                          setMessage('La note doit être entre 0 et 20.');
+                          return;
+                        }
+                        const result = await updateGrade(grade.id, { score });
+                        setMessage(result.message || 'Note corrigée. Le bulletin a été recalculé.');
+                        refresh();
+                      }}
+                    >
+                      Corriger
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm('Supprimer cette note ?')) return; await deleteGrade(grade.id); refresh(); }}>Supprimer</button>
+                </td>
               </tr>
             ))}
           </tbody>

@@ -1588,6 +1588,38 @@ app.post('/api/grades/bulk', requireAuth, (req, res) => {
   return res.json({ success: true, message: 'Notes enregistrées', average: school.averageOf(saved), coefficient: rules.coefficient });
 });
 
+function canCorrectBulletin(role) {
+  return ['admin', 'superadmin', 'director'].includes(role);
+}
+
+app.put('/api/grades/:id', requireAuth, (req, res) => {
+  if (!canCorrectBulletin(req.session.role)) {
+    return res.status(403).json({ success: false, message: 'Seul le D.E. ou le proviseur peut recoriger une note du bulletin.' });
+  }
+  const db = load(req);
+  const year = school.yearOf(req, db);
+  const grade = (db.grades || []).find((item) => item.id === req.params.id);
+  if (!grade) return res.status(404).json({ success: false, message: 'Note introuvable' });
+  const score = Number(req.body.score);
+  if (Number.isNaN(score) || score < 0 || score > 20) {
+    return res.status(400).json({ success: false, message: 'La note doit être entre 0 et 20' });
+  }
+  grade.score = Math.round(score * 10) / 10;
+  grade.correctedBy = req.session.id;
+  grade.correctedByName = req.session.name || req.session.email || '';
+  grade.correctedAt = now();
+  save(req, db);
+  const student = db.students.find((item) => item.id === grade.studentId);
+  const fiche = student ? school.studentFiche(db, student, year) : null;
+  return res.json({
+    success: true,
+    message: 'Note corrigée. La moyenne, le rang et le bulletin sont recalculés.',
+    grade: school.withGrade(db, grade),
+    average: fiche ? fiche.average : school.averageOf((db.grades || []).filter((item) => item.studentId === grade.studentId && school.inYear(item, year))),
+    ranking: fiche?.ranking || null
+  });
+});
+
 app.delete('/api/grades/:id', requireStaff, (req, res) => {
   const db = load(req);
   db.grades = db.grades.filter((item) => item.id !== req.params.id);

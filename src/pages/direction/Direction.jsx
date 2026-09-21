@@ -32,6 +32,7 @@ const GROUPS = [
     cards: [
       { to: '/dashboard/subjects', icon: '📚', title: 'Programmes', text: 'Matières et programmes de l’établissement.' },
       { to: '/dashboard/grades', icon: '📊', title: 'Résultats', text: 'Notes et moyennes des élèves.' },
+      { to: '/dashboard/grades', icon: '✏️', title: 'Corriger les bulletins', text: 'Revoir une note. La moyenne, le rang et le bulletin se recalculent tout seuls.' },
       { to: '/dashboard/evaluations', icon: '🧑‍⚖️', title: 'Conseils de classe', text: 'Évaluations et suivi pédagogique.' }
     ]
   },

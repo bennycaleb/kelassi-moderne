@@ -122,3 +122,7 @@ export function canSee(role, section) {
   }
   return false;
 }
+
+export function canCorrectBulletin(role) {
+  return ['admin', 'superadmin', 'director'].includes(role);
+}

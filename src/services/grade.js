@@ -8,6 +8,10 @@ export function createGrade(payload) {
   return api('/api/grades', { method: 'POST', body: payload });
 }
 
+export function updateGrade(id, payload) {
+  return api(`/api/grades/${id}`, { method: 'PUT', body: payload });
+}
+
 export function deleteGrade(id) {
   return api(`/api/grades/${id}`, { method: 'DELETE' });
 }
