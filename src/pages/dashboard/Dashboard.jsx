@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { getDashboard } from '../../services/dashboard';
 import { money } from '../../services/api';
 import { useSchool } from '../../context/SchoolContext';
@@ -26,12 +26,28 @@ function Bars({ items, field = 'value' }) {
 }
 
 function Dashboard() {
+  const role = currentRole();
+  if (role === 'supervisor') {
+    return <Navigate to="/dashboard/life" replace />;
+  }
+  if (role === 'secretary') {
+    return <Navigate to="/dashboard/office" replace />;
+  }
+  if (role === 'director') {
+    return <Navigate to="/dashboard/direction" replace />;
+  }
+  if (role === 'intendant') {
+    return <Navigate to="/dashboard/estate" replace />;
+  }
+  return <AdminDashboard />;
+}
+
+function AdminDashboard() {
   const { year, settings } = useSchool();
   const [data, setData] = useState(null);
   const [aiDesk, setAiDesk] = useState(null);
   const [error, setError] = useState('');
   const currency = settings?.currency || 'FC';
-  const role = currentRole();
 
   useEffect(() => {
     setData(null);
@@ -51,12 +67,10 @@ function Dashboard() {
           <h1>Tableau de bord</h1>
           <p>{stats.students} étudiants | {stats.teachers} enseignants | {stats.classes} classes | {stats.presenceRate} % présence</p>
         </div>
-        {role !== 'supervisor' && (
-          <div className="row-actions">
-            <Link to="/dashboard/ai" className="btn btn-secondary">Kelassi IA</Link>
-            <Link to="/dashboard/students" className="btn">Inscrire un étudiant</Link>
-          </div>
-        )}
+        <div className="row-actions">
+          <Link to="/dashboard/ai" className="btn btn-secondary">Kelassi IA</Link>
+          <Link to="/dashboard/students" className="btn">Inscrire un étudiant</Link>
+        </div>
       </div>
       {stats.students === 0 && (
         <div className="credentials-box">

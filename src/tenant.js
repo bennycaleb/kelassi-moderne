@@ -51,7 +51,7 @@ function studentsByCycle(db, schoolId, students) {
 const SCHOOL_KEYS = [
   'users', 'students', 'teachers', 'classes', 'subjects', 'courses', 'grades', 'payments',
   'timetable', 'attendance', 'announcements', 'events', 'parents', 'sanctions',
-  'convocations', 'workItems', 'submissions', 'cycles', 'evaluationTypes', 'evaluations', 'feeTypes'
+  'convocations', 'watchReports', 'estateRecords', 'workItems', 'submissions', 'cycles', 'evaluationTypes', 'evaluations', 'feeTypes'
 ];
 
 function schoolById(db, schoolId) {

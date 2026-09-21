@@ -1,6 +1,6 @@
 const school = require('./school');
 
-const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant', 'supervisor'];
+const STAFF = ['admin', 'superadmin', 'director', 'secretary', 'accountant', 'supervisor', 'intendant'];
 const askBuckets = new Map();
 let groqWorkingModel = '';
 
@@ -185,7 +185,7 @@ function visibleStaff(db, session) {
   if (!STAFF.includes(session.role)) return [];
   const labels = {
     owner: 'Entreprise Kelassi', superadmin: 'Super Admin', admin: 'Administrateur',
-    director: 'Directeur', secretary: 'Secrétaire', accountant: 'Comptable', supervisor: 'Surveillant'
+    director: 'D.E.', secretary: 'Secrétaire', accountant: 'Comptable', supervisor: 'Surveillant', intendant: 'Intendant'
   };
   return (db.users || [])
     .filter((user) => STAFF.includes(user.role))
@@ -374,7 +374,7 @@ const SYSTEM_GUIDE = [
   { keys: ['annonce', 'communication', 'message'], text: 'Annonces : menu Annonces / Communication. Visibles selon l’espace (admin, prof, élève, parent).' },
   { keys: ['ia', 'kelassi ia', 'assistant', 'intelligence', 'chatgpt'], text: 'Kelassi IA répond à toute question : l’école, Kelassi, et aussi les questions générales (cours, culture, explications) comme ChatGPT. Elle ne change pas les notes ni les paiements et ne révèle pas les mots de passe.' },
   { keys: ['parametre', 'signature', 'responsable', 'devise', 'annee'], text: 'Paramètres : nom de l’école, année, devise, scolarité attendue, nom et signature du premier responsable.' },
-  { keys: ['utilisateur', 'admin', 'comptable', 'secretaire', 'directeur'], text: 'Utilisateurs : comptes du personnel. Rôles : admin, directeur, secrétaire, comptable. L’enseignant, l’élève et le parent ont leurs propres espaces.' }
+  { keys: ['utilisateur', 'admin', 'comptable', 'secretaire', 'directeur', 'd.e', 'intendant'], text: 'Utilisateurs : l’admin crée les D.E., intendants, secrétaires et surveillants. L’intendant gère budget, achats, matériel et locaux avec la direction.' }
 ];
 
 function suggestionsFor(role) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Avatar from '../../components/Avatar';
 import EnrollmentDocsField from '../../components/EnrollmentDocs';
 import FaceCapture from '../../components/FaceCapture';
@@ -16,6 +16,7 @@ const emptyForm = {
 
 function Students() {
   const { year, classes } = useSchool();
+  const [params] = useSearchParams();
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState(null);
@@ -27,6 +28,11 @@ function Students() {
   const [classFilter, setClassFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [pendingDocs, setPendingDocs] = useState([]);
+
+  useEffect(() => {
+    const status = params.get('status') || '';
+    if (status) setStatusFilter(status);
+  }, [params]);
 
   async function refresh() {
     const data = await getStudents();
@@ -141,6 +147,8 @@ function Students() {
             <option value="">Tous</option>
             <option value="actif">Actif</option>
             <option value="inactif">Inactif</option>
+            <option value="transféré">Transféré</option>
+            <option value="radié">Radié</option>
           </select>
         </div>
       </div>
@@ -219,7 +227,7 @@ function Students() {
               <div className="form-field"><label>Date de naissance</label><input type="date" name="birthDate" value={form.birthDate} onChange={change} /></div>
               <div className="form-field"><label>Sexe</label><select name="gender" value={form.gender} onChange={change}><option value="">—</option><option>F</option><option>M</option></select></div>
               <div className="form-field"><label>Classe</label><select name="classId" value={form.classId} onChange={change}>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-              <div className="form-field"><label>Statut</label><select name="status" value={form.status} onChange={change}><option value="actif">actif</option><option value="inactif">inactif</option></select></div>
+              <div className="form-field"><label>Statut</label><select name="status" value={form.status} onChange={change}><option value="actif">actif</option><option value="inactif">inactif</option><option value="transféré">transféré</option><option value="radié">radié</option></select></div>
               <div className="form-field full">
                 <FaceCapture
                   photo={form.photo}

@@ -1,14 +1,21 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DOCUMENT_TYPES } from '../../constants';
 import { useSchool } from '../../context/SchoolContext';
 import { api } from '../../services/api';
 
 function Documents() {
   const { year, classes } = useSchool();
+  const [params] = useSearchParams();
   const [students, setStudents] = useState([]);
   const [studentId, setStudentId] = useState('');
   const [classId, setClassId] = useState('');
-  const [type, setType] = useState('certificate');
+  const [type, setType] = useState(params.get('type') || 'certificate');
+
+  useEffect(() => {
+    const next = params.get('type');
+    if (next) setType(next);
+  }, [params]);
 
   useEffect(() => {
     api('/api/students').then((data) => setStudents(data.students)).catch(() => {});

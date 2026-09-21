@@ -61,7 +61,7 @@ function Secretaries() {
       {credentials && (
         <div className="credentials-box">
           <p>Email : <b>{credentials.email}</b> — Mot de passe : <b>{credentials.password}</b></p>
-          <p>Remettez ces identifiants à la secrétaire. Elle se connecte sur la même page que l’admin.</p>
+          <p>Elle se connecte sur la même page que vous, puis arrive dans <b>Administration</b> : élèves, dossiers, documents et communication.</p>
         </div>
       )}
       {error && !open && <p className="error">{error}</p>}

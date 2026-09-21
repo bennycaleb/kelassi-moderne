@@ -152,6 +152,14 @@ export function StudentHome() {
           <Link className="btn btn-secondary btn-sm" to="/student/convocations">Voir tout</Link>
         </div>
       )}
+      {(fiche.sanctions || []).length > 0 && (
+        <div className="panel">
+          <h2>Incidents & sanctions</h2>
+          {(fiche.sanctions || []).map((item) => (
+            <p key={item.id}>{item.date} — {item.label}{item.detail ? ` : ${item.detail}` : ''}</p>
+          ))}
+        </div>
+      )}
       <div className="panel">
         <h2>📄 Mes documents</h2>
         <div className="row-actions">
@@ -249,6 +257,14 @@ function ChildFiche({ fiche }) {
           ))
           : <p>Aucune convocation pour le moment.</p>}
       </div>
+      {(fiche.sanctions || []).length > 0 && (
+        <div className="panel">
+          <h2>Incidents & sanctions</h2>
+          {(fiche.sanctions || []).map((item) => (
+            <p key={item.id}>{item.date} — {item.label}{item.detail ? ` : ${item.detail}` : ''}</p>
+          ))}
+        </div>
+      )}
       <div className="panel">
         <h2>Documents</h2>
         <div className="row-actions">

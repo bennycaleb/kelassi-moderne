@@ -32,6 +32,8 @@ import AiDesk from '../pages/ai/AiDesk';
 import UsersPage from '../pages/users/Users';
 import Secretaries from '../pages/users/Secretaries';
 import Supervisors from '../pages/users/Supervisors';
+import Directors from '../pages/users/Directors';
+import Intendants from '../pages/users/Intendants';
 import AcademicConfig from '../pages/academic/AcademicConfig';
 import TeacherEvaluations from '../pages/academic/TeacherEvaluations';
 import OwnerLayout from '../layout/OwnerLayout';
@@ -39,6 +41,15 @@ import Tenants from '../pages/owner/Tenants';
 import StudentWork from '../pages/work/StudentWork';
 import TeacherWork from '../pages/work/TeacherWork';
 import Convocations from '../pages/convocations/Convocations';
+import SchoolLife from '../pages/life/SchoolLife';
+import LifeAttendance from '../pages/life/LifeAttendance';
+import Incidents from '../pages/life/Incidents';
+import WatchReports from '../pages/life/WatchReports';
+import Secretariat from '../pages/secretariat/Secretariat';
+import Direction from '../pages/direction/Direction';
+import Infrastructure from '../pages/direction/Infrastructure';
+import Intendance from '../pages/estate/Intendance';
+import EstateRecords from '../pages/estate/EstateRecords';
 import StudentHome, { TeacherHome, ParentHome, SimpleList, PaymentsList, StudentAbsences, StudentDocuments, ParentDocuments, TeacherMessages, ConvocationsList } from '../pages/portal/PortalPages';
 
 const STAFF = STAFF_ROLES;
@@ -135,6 +146,15 @@ function AppRouter() {
                 <Route path="timetable" element={<Timetable />} />
                 <Route path="attendance" element={<Attendance />} />
                 <Route path="face" element={<FaceAttendance />} />
+                <Route path="life" element={<SchoolLife />} />
+                <Route path="life/attendance" element={<LifeAttendance />} />
+                <Route path="life/incidents" element={<Incidents />} />
+                <Route path="life/reports" element={<WatchReports />} />
+                <Route path="office" element={<Secretariat />} />
+                <Route path="direction" element={<Direction />} />
+                <Route path="infrastructure" element={<Infrastructure />} />
+                <Route path="estate" element={<Intendance />} />
+                <Route path="estate/:type" element={<EstateRecords />} />
                 <Route path="convocations" element={<Convocations />} />
                 <Route path="grades" element={<Grades />} />
                 <Route path="evaluations" element={<TeacherEvaluations />} />
@@ -145,6 +165,8 @@ function AppRouter() {
                 <Route path="communication" element={<Communication />} />
                 <Route path="secretaries" element={<Secretaries />} />
                 <Route path="supervisors" element={<Supervisors />} />
+                <Route path="directors" element={<Directors />} />
+                <Route path="intendants" element={<Intendants />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="ai" element={<AiDesk />} />

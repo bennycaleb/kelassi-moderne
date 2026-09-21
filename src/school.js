@@ -305,6 +305,25 @@ function withConvocation(db, item) {
   };
 }
 
+function withSanction(db, item) {
+  const student = studentById(db, item.studentId);
+  return {
+    ...item,
+    kind: item.kind || 'sanction',
+    studentName: fullName(student),
+    className: classNameOf(db, student)
+  };
+}
+
+function withWatchReport(db, item) {
+  const student = item.studentId ? studentById(db, item.studentId) : null;
+  return {
+    ...item,
+    studentName: student ? fullName(student) : '',
+    className: student ? classNameOf(db, student) : ''
+  };
+}
+
 function attachChild(parent, studentId) {
   if (!parent || !studentId) return false;
   const ids = parent.childrenIds || [];
@@ -674,7 +693,7 @@ function studentFiche(db, student, year) {
   const grades = db.grades.filter((item) => item.studentId === student.id && inYear(item, year)).map((item) => withGrade(db, item));
   const payments = db.payments.filter((item) => item.studentId === student.id && inYear(item, year)).map((item) => withPayment(db, item));
   const attendance = db.attendance.filter((item) => item.studentId === student.id && inYear(item, year));
-  const sanctions = db.sanctions.filter((item) => item.studentId === student.id && inYear(item, year));
+  const sanctions = db.sanctions.filter((item) => item.studentId === student.id && inYear(item, year)).map((item) => withSanction(db, item));
   const timetable = db.timetable.filter((item) => item.classId === student.classId && inYear(item, year)).map((item) => withSlot(db, item));
   const documents = (db.documents || []).filter((item) => item.studentId === student.id && inYear(item, year));
   const convocations = (db.convocations || []).filter((item) => item.studentId === student.id && inYear(item, year)).map((item) => withConvocation(db, item));
@@ -763,6 +782,8 @@ module.exports = {
   withSlot,
   withAttendance,
   withConvocation,
+  withSanction,
+  withWatchReport,
   clockLabel,
   punchLine,
   applyFacePunch,

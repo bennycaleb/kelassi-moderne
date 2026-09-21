@@ -54,14 +54,14 @@ function Supervisors() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Surveillants</h1>
-          <p>Le surveillant utilise le <b>même scan visage</b> qu’aujourd’hui à l’entrée, et peut convoquer un élève. La convocation apparaît chez le parent de cet élève et chez l’élève.</p>
+          <p>Le surveillant travaille dans <b>Vie scolaire</b> : scan à l’entrée, présences, retards, incidents, convocations et rapports pour la direction.</p>
         </div>
         {canManage && <button type="button" className="btn" onClick={openCreate}>➕ Ajouter un surveillant</button>}
       </div>
       {credentials && (
         <div className="credentials-box">
           <p>Email : <b>{credentials.email}</b> — Mot de passe : <b>{credentials.password}</b></p>
-          <p>Remettez ces identifiants au surveillant. Il se connecte sur la même page que l’admin, puis arrive directement sur le scan visage.</p>
+          <p>Remettez ces identifiants au surveillant. Il se connecte sur la même page que l’admin, puis arrive dans Vie scolaire.</p>
         </div>
       )}
       {error && !open && <p className="error">{error}</p>}

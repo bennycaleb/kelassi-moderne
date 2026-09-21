@@ -109,6 +109,8 @@ function seed() {
     parents: [],
     sanctions: [],
     convocations: [],
+    watchReports: [],
+    estateRecords: [],
     workItems: [],
     submissions: [],
     cycles: defaultCycles(),
@@ -187,6 +189,8 @@ function migrate(raw) {
     parents: ensureArray(raw.parents),
     sanctions: ensureArray(raw.sanctions),
     convocations: ensureArray(raw.convocations),
+    watchReports: ensureArray(raw.watchReports),
+    estateRecords: ensureArray(raw.estateRecords),
     workItems: ensureArray(raw.workItems),
     submissions: ensureArray(raw.submissions),
     cycles: ensureArray(raw.cycles).length ? raw.cycles : defaultCycles(),
@@ -233,7 +237,7 @@ function migrate(raw) {
   const schoolCollections = [
     'students', 'teachers', 'classes', 'subjects', 'courses', 'grades', 'payments',
     'timetable', 'attendance', 'announcements', 'events', 'parents', 'sanctions',
-    'convocations', 'workItems', 'submissions', 'cycles', 'evaluationTypes', 'evaluations', 'feeTypes'
+    'convocations', 'watchReports', 'estateRecords', 'workItems', 'submissions', 'cycles', 'evaluationTypes', 'evaluations', 'feeTypes'
   ];
   schoolCollections.forEach((key) => {
     (data[key] || []).forEach((item) => {

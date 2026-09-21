@@ -11,7 +11,7 @@ function Attendance() {
     try { return JSON.parse(localStorage.getItem('kelassi_user') || '{}'); } catch { return {}; }
   })();
   if (current.role === 'supervisor') {
-    return <Navigate to="/dashboard/face" replace />;
+    return <Navigate to="/dashboard/life/attendance" replace />;
   }
   return <AttendanceBoard />;
 }

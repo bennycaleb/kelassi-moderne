@@ -878,6 +878,19 @@ body,
   margin-bottom: 18px;
 }
 
+a.stat-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+a.stat-card p {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .chart-row {
   display: grid;
   grid-template-columns: 90px 1fr auto;
