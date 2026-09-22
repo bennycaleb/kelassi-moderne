@@ -128,9 +128,9 @@ function seed() {
 
 function defaultCycles() {
   return [
-    { id: 'cycle_primaire', name: 'Primaire', code: 'primaire', active: true, gradingMode: 'coefficient', teacherCanEditCoefficient: false, color: '#16a34a' },
-    { id: 'cycle_college', name: 'Collège', code: 'college', active: true, gradingMode: 'coefficient', teacherCanEditCoefficient: false, color: '#2563eb' },
-    { id: 'cycle_lycee', name: 'Lycée', code: 'lycee', active: true, gradingMode: 'percent', teacherCanEditCoefficient: false, color: '#7c3aed' },
+    { id: 'cycle_primaire', name: 'Primaire', code: 'primaire', active: true, gradingMode: 'coefficient', teacherCanEditCoefficient: true, color: '#16a34a' },
+    { id: 'cycle_college', name: 'Collège', code: 'college', active: true, gradingMode: 'coefficient', teacherCanEditCoefficient: true, color: '#2563eb' },
+    { id: 'cycle_lycee', name: 'Lycée', code: 'lycee', active: true, gradingMode: 'percent', teacherCanEditCoefficient: true, color: '#7c3aed' },
     { id: 'cycle_universite', name: 'Université', code: 'universite', active: true, gradingMode: 'coefficient', teacherCanEditCoefficient: true, color: '#0f766e' }
   ];
 }

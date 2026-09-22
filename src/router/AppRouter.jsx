@@ -16,6 +16,7 @@ import Teachers from '../pages/teachers/Teachers';
 import TeacherProfile from '../pages/teachers/TeacherProfile';
 import Courses from '../pages/courses/Courses';
 import Grades from '../pages/grades/Grades';
+import TeacherGrades from '../pages/grades/TeacherGrades';
 import Payments from '../pages/payments/Payments';
 import Classes from '../pages/classes/Classes';
 import ClassDetail from '../pages/classes/ClassDetail';
@@ -191,7 +192,7 @@ function AppRouter() {
                 <Route path="attendance" element={<Attendance />} />
                 <Route path="face" element={<FaceAttendance />} />
                 <Route path="timetable" element={<SimpleList title="Mon emploi du temps" path="/api/timetable" field="timetable" line={(item) => `${item.day} ${item.startTime}–${item.endTime} — ${item.subjectName} (${item.className})`} />} />
-                <Route path="grades" element={<Grades />} />
+                <Route path="grades" element={<TeacherGrades />} />
                 <Route path="evaluations" element={<TeacherEvaluations />} />
                 <Route path="academic" element={<AcademicConfig />} />
                 <Route path="messages" element={<TeacherMessages />} />

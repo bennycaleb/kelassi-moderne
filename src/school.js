@@ -115,17 +115,15 @@ function typesForCycle(db, cycleId) {
 }
 
 function gradeWeightFromType(cycle, type, requestedCoefficient) {
-  if (!type) return Number(requestedCoefficient || 1) || 1;
-  const locked = !cycle || cycle.teacherCanEditCoefficient === false;
   const requested = requestedCoefficient === undefined || requestedCoefficient === null || requestedCoefficient === ''
     ? null
     : Number(requestedCoefficient);
+  if (requested !== null && !Number.isNaN(requested) && requested > 0) return requested;
+  if (!type) return 1;
   if (cycle?.gradingMode === 'percent') {
-    const fallback = Number(type.weightPercent || type.coefficient || 1) || 1;
-    return locked || requested === null ? fallback : requested;
+    return Number(type.weightPercent || type.coefficient || 1) || 1;
   }
-  const fallback = Number(type.coefficient || 1) || 1;
-  return locked || requested === null ? fallback : requested;
+  return Number(type.coefficient || 1) || 1;
 }
 
 function resolveGradeRules(db, { courseId, classId, typeId, label, coefficient }) {
@@ -207,6 +205,19 @@ function teacherClassIds(db, teacher) {
   const fromCourses = db.courses.filter((course) => course.teacherId === teacher.id).map((course) => course.classId);
   const fromMain = db.classes.filter((classroom) => classroom.mainTeacherId === teacher.id).map((classroom) => classroom.id);
   return [...new Set([...fromCourses, ...fromMain].filter(Boolean))];
+}
+
+function teacherCycleIds(db, teacher) {
+  return [...new Set(teacherClassIds(db, teacher).map((classId) => {
+    const classroom = classById(db, classId);
+    return cycleOfClass(db, classroom)?.id;
+  }).filter(Boolean))];
+}
+
+function teacherCanEditCycle(db, session, cycleId) {
+  if (!session || session.role !== 'teacher') return true;
+  const teacher = db.teachers.find((item) => item.userId === session.id);
+  return teacherCycleIds(db, teacher).includes(cycleId);
 }
 
 function withPayment(db, payment) {
@@ -756,6 +767,8 @@ module.exports = {
   withPayment,
   withWork,
   teacherClassIds,
+  teacherCycleIds,
+  teacherCanEditCycle,
   averageOf,
   buildStats,
   nextMatricule,

@@ -1,19 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import { useSchool } from '../../context/SchoolContext';
+import { getCourses } from '../../services/course';
 
 const EMPTY_TYPE = { name: '', coefficient: '1', weightPercent: '0', maxScore: '20' };
 
+function currentRole() {
+  try { return JSON.parse(localStorage.getItem('kelassi_user') || '{}').role; } catch { return ''; }
+}
+
 function AcademicConfig() {
-  const { year } = useSchool();
+  const { year, classes } = useSchool();
+  const isTeacher = currentRole() === 'teacher';
   const [cycles, setCycles] = useState([]);
   const [types, setTypes] = useState([]);
-  const [cycleId, setCycleId] = useState('cycle_college');
+  const [allowedCycleIds, setAllowedCycleIds] = useState(null);
+  const [cycleId, setCycleId] = useState('');
   const [form, setForm] = useState(EMPTY_TYPE);
   const [editingId, setEditingId] = useState('');
   const [message, setMessage] = useState('');
 
-  const selected = cycles.find((item) => item.id === cycleId) || cycles[0];
+  const visibleCycles = useMemo(() => {
+    if (!isTeacher || !allowedCycleIds) return cycles;
+    return cycles.filter((cycle) => allowedCycleIds.includes(cycle.id));
+  }, [cycles, isTeacher, allowedCycleIds]);
+
+  const selected = visibleCycles.find((item) => item.id === cycleId) || visibleCycles[0];
   const cycleTypes = useMemo(
     () => types.filter((item) => item.cycleId === (selected?.id || cycleId)).sort((a, b) => Number(a.order || 0) - Number(b.order || 0)),
     [types, selected, cycleId]
@@ -21,12 +33,24 @@ function AcademicConfig() {
 
   async function refresh() {
     const data = await api('/api/academic');
-    setCycles(data.cycles || []);
+    const nextCycles = data.cycles || [];
+    setCycles(nextCycles);
     setTypes(data.evaluationTypes || []);
-    if (!cycleId && data.cycles?.[0]) setCycleId(data.cycles[0].id);
+    if (isTeacher) {
+      const courseData = await getCourses();
+      const ids = [...new Set((courseData.courses || []).map((course) => {
+        const classroom = classes.find((item) => item.id === course.classId);
+        return classroom?.cycleId;
+      }).filter(Boolean))];
+      setAllowedCycleIds(ids);
+      setCycleId((current) => ids.includes(current) ? current : (ids[0] || ''));
+    } else {
+      setAllowedCycleIds(null);
+      setCycleId((current) => nextCycles.some((item) => item.id === current) ? current : (nextCycles[0]?.id || ''));
+    }
   }
 
-  useEffect(() => { refresh().catch(() => {}); }, [year]);
+  useEffect(() => { refresh().catch(() => {}); }, [year, classes.length]);
 
   function notifyMeta() {
     window.dispatchEvent(new Event('kelassi-auth'));
@@ -34,7 +58,7 @@ function AcademicConfig() {
 
   async function saveCycle(payload) {
     await api(`/api/academic/cycles/${payload.id}`, { method: 'PUT', body: payload });
-    setMessage('Règle du cycle enregistrée. Elle s’applique à toutes les classes de ce cycle.');
+    setMessage(`Règle du ${payload.name || 'cycle'} enregistrée. Les autres cycles ne changent pas.`);
     await refresh();
     notifyMeta();
   }
@@ -65,14 +89,22 @@ function AcademicConfig() {
       <div className="page-header">
         <h1>Règles de notation</h1>
         <p>
-          Chaque établissement crée ses propres règles. L’école les définit ici, y compris via les enseignants :
-          un Devoir peut valoir 2 au collège, et 40 % au lycée.
+          Primaire, collège, lycée et université ont chacun leur propre politique. Changer l’un ne change jamais les autres.
+          {isTeacher
+            ? ' Vous voyez uniquement le cycle de vos classes.'
+            : ' Un Devoir peut valoir 2 au collège, et 40 % au lycée.'}
         </p>
       </div>
       {message && <div className="credentials-box">{message}</div>}
 
+      {!visibleCycles.length && isTeacher && (
+        <div className="panel">
+          <p>Aucun cycle à régler pour l’instant. L’administration doit vous affecter une classe.</p>
+        </div>
+      )}
+
       <div className="cycle-grid">
-        {cycles.map((cycle) => (
+        {visibleCycles.map((cycle) => (
           <button
             type="button"
             key={cycle.id}
@@ -91,17 +123,20 @@ function AcademicConfig() {
       {selected && (
         <div className="panel">
           <h2>{selected.name} — mode de calcul</h2>
+          <p>Cette règle s’applique seulement au cycle {selected.name}, pas aux autres.</p>
           <div className="form-grid">
-            <div className="form-field">
-              <label>Cycle actif pour l’établissement</label>
-              <select
-                value={selected.active ? '1' : '0'}
-                onChange={(event) => saveCycle({ ...selected, active: event.target.value === '1' })}
-              >
-                <option value="1">Oui, les classes peuvent l’utiliser</option>
-                <option value="0">Non, masqué pour les nouvelles classes</option>
-              </select>
-            </div>
+            {!isTeacher && (
+              <div className="form-field">
+                <label>Cycle actif pour l’établissement</label>
+                <select
+                  value={selected.active ? '1' : '0'}
+                  onChange={(event) => saveCycle({ ...selected, active: event.target.value === '1' })}
+                >
+                  <option value="1">Oui, les classes peuvent l’utiliser</option>
+                  <option value="0">Non, masqué pour les nouvelles classes</option>
+                </select>
+              </div>
+            )}
             <div className="form-field">
               <label>Mode de notation</label>
               <select
@@ -112,16 +147,18 @@ function AcademicConfig() {
                 <option value="percent">Pourcentages (Examen = 40 %)</option>
               </select>
             </div>
-            <div className="form-field">
-              <label>Les enseignants peuvent modifier le poids à la saisie</label>
-              <select
-                value={selected.teacherCanEditCoefficient ? '1' : '0'}
-                onChange={(event) => saveCycle({ ...selected, teacherCanEditCoefficient: event.target.value === '1' })}
-              >
-                <option value="0">Non — la règle de l’école s’applique</option>
-                <option value="1">Oui — le professeur peut changer le coef / %</option>
-              </select>
-            </div>
+            {!isTeacher && (
+              <div className="form-field">
+                <label>Les enseignants peuvent modifier le poids à la saisie</label>
+                <select
+                  value={selected.teacherCanEditCoefficient ? '1' : '0'}
+                  onChange={(event) => saveCycle({ ...selected, teacherCanEditCoefficient: event.target.value === '1' })}
+                >
+                  <option value="1">Oui — le professeur peut changer le coef / %</option>
+                  <option value="0">Non — la règle de l’école s’applique</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -129,7 +166,7 @@ function AcademicConfig() {
       {selected && (
         <div className="panel">
           <h2>Types d’évaluation — {selected.name}</h2>
-          <p>Exemples : Interrogation, Devoir, EPR, Examen. Le coefficient ou le pourcentage appartient à l’évaluation, pas à l’élève.</p>
+          <p>Ces types servent seulement au cycle {selected.name}. Un professeur de lycée ne verra pas les compositions du primaire.</p>
           <table>
             <thead>
               <tr>

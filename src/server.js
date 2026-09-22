@@ -1641,10 +1641,18 @@ app.put('/api/academic/cycles/:id', requireSchool, (req, res) => {
   const db = load(req);
   const cycle = (db.cycles || []).find((item) => item.id === req.params.id);
   if (!cycle) return res.status(404).json({ success: false, message: 'Cycle introuvable' });
-  Object.assign(cycle, pick(req.body, ['name', 'active', 'gradingMode', 'teacherCanEditCoefficient', 'color']));
+  if (!school.teacherCanEditCycle(db, req.session, cycle.id)) {
+    return res.status(403).json({ success: false, message: 'Vous ne pouvez modifier que le cycle de vos classes.' });
+  }
+  const fields = req.session.role === 'teacher'
+    ? ['gradingMode']
+    : ['name', 'active', 'gradingMode', 'teacherCanEditCoefficient', 'color'];
+  Object.assign(cycle, pick(req.body, fields));
   if (cycle.gradingMode !== 'percent') cycle.gradingMode = 'coefficient';
-  cycle.active = Boolean(cycle.active);
-  cycle.teacherCanEditCoefficient = Boolean(cycle.teacherCanEditCoefficient);
+  if (req.session.role !== 'teacher') {
+    cycle.active = Boolean(cycle.active);
+    cycle.teacherCanEditCoefficient = Boolean(cycle.teacherCanEditCoefficient);
+  }
   save(req, db);
   return res.json({ success: true, cycle, cycles: db.cycles });
 });
@@ -1656,6 +1664,9 @@ app.post('/api/academic/types', requireSchool, (req, res) => {
   if (!name || !cycleId) return res.status(400).json({ success: false, message: 'Cycle et nom du type d’évaluation obligatoires' });
   if (!(db.cycles || []).some((item) => item.id === cycleId)) {
     return res.status(404).json({ success: false, message: 'Cycle introuvable' });
+  }
+  if (!school.teacherCanEditCycle(db, req.session, cycleId)) {
+    return res.status(403).json({ success: false, message: 'Vous ne pouvez modifier que le cycle de vos classes.' });
   }
   const siblings = (db.evaluationTypes || []).filter((item) => item.cycleId === cycleId);
   const type = {
@@ -1677,6 +1688,10 @@ app.put('/api/academic/types/:id', requireSchool, (req, res) => {
   const db = load(req);
   const type = (db.evaluationTypes || []).find((item) => item.id === req.params.id);
   if (!type) return res.status(404).json({ success: false, message: 'Type d’évaluation introuvable' });
+  const nextCycleId = String(req.body.cycleId || type.cycleId);
+  if (!school.teacherCanEditCycle(db, req.session, type.cycleId) || !school.teacherCanEditCycle(db, req.session, nextCycleId)) {
+    return res.status(403).json({ success: false, message: 'Vous ne pouvez modifier que le cycle de vos classes.' });
+  }
   Object.assign(type, pick(req.body, ['name', 'coefficient', 'weightPercent', 'maxScore', 'order', 'cycleId']));
   type.coefficient = Number(type.coefficient || 1) || 1;
   type.weightPercent = Number(type.weightPercent || 0) || 0;
@@ -1687,6 +1702,10 @@ app.put('/api/academic/types/:id', requireSchool, (req, res) => {
 
 app.delete('/api/academic/types/:id', requireSchool, (req, res) => {
   const db = load(req);
+  const type = (db.evaluationTypes || []).find((item) => item.id === req.params.id);
+  if (type && !school.teacherCanEditCycle(db, req.session, type.cycleId)) {
+    return res.status(403).json({ success: false, message: 'Vous ne pouvez modifier que le cycle de vos classes.' });
+  }
   db.evaluationTypes = (db.evaluationTypes || []).filter((item) => item.id !== req.params.id);
   save(req, db);
   return res.json({ success: true, message: 'Type d’évaluation supprimé', evaluationTypes: db.evaluationTypes });

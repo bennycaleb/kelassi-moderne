@@ -18,10 +18,12 @@ function TeacherEvaluations() {
   const [scores, setScores] = useState({});
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
-  const [form, setForm] = useState({ typeId: '', title: '', date: '', term: TERMS[0] });
+  const [form, setForm] = useState({ typeId: '', title: '', date: '', term: TERMS[0], coefficient: '1' });
 
   const classroom = classes.find((item) => item.id === classId);
-  const cycle = cycles.find((item) => item.id === classroom?.cycleId) || cycles.find((item) => item.code === 'college');
+  const cycle = cycles.find((item) => item.id === classroom?.cycleId)
+    || cycles.find((item) => item.name === classroom?.level)
+    || null;
   const cycleTypes = evaluationTypes.filter((item) => item.cycleId === cycle?.id);
   const classCourses = useMemo(
     () => courses.filter((item) => !classId || item.classId === classId),
@@ -84,11 +86,12 @@ function TeacherEvaluations() {
         typeId: form.typeId,
         title: form.title || type?.name,
         date: form.date,
-        term: form.term
+        term: form.term,
+        coefficient: Number(form.coefficient || type?.coefficient || 1)
       }
     });
     setOpen(false);
-    setForm({ typeId: '', title: '', date: '', term: TERMS[0] });
+    setForm({ typeId: '', title: '', date: '', term: TERMS[0], coefficient: '1' });
     setMessage('Évaluation créée. Saisissez maintenant les notes des élèves.');
     await refresh();
     setEvaluationId(created.evaluation.id);
@@ -116,7 +119,7 @@ function TeacherEvaluations() {
       <div className="page-toolbar">
         <div className="page-header">
           <h1>Mes évaluations</h1>
-          <p>Classe → matière → évaluation. Les notes des élèves restent sur 20 ; le poids est celui défini par l’école.</p>
+          <p>Classe → matière → évaluation. Les notes restent sur 20. Vous pouvez aussi régler le coefficient, pas seulement l’école.</p>
         </div>
         <div className="row-actions">
           <Link className="btn btn-secondary" to={rulesLink}>Créer / modifier les règles</Link>
@@ -150,7 +153,7 @@ function TeacherEvaluations() {
 
       <div className="panel">
         <h2>Évaluations de cette matière</h2>
-        {!evaluations.length && <p>Aucune évaluation pour le moment. Créez-en une à partir des types définis par l’école.</p>}
+        {!evaluations.length && <p>Aucune évaluation pour le moment. Créez-en une et choisissez son coefficient.</p>}
         <div className="eval-list">
           {evaluations.map((item) => (
             <button
@@ -224,8 +227,16 @@ function TeacherEvaluations() {
           <form onSubmit={createEvaluation}>
             <div className="form-grid">
               <div className="form-field full">
-                <label>Type défini par l’école</label>
-                <select value={form.typeId} onChange={(event) => setForm({ ...form, typeId: event.target.value, title: form.title || cycleTypes.find((item) => item.id === event.target.value)?.name || '' })} required>
+                <label>Type d’évaluation</label>
+                <select value={form.typeId} onChange={(event) => {
+                  const type = cycleTypes.find((item) => item.id === event.target.value);
+                  setForm({
+                    ...form,
+                    typeId: event.target.value,
+                    title: form.title || type?.name || '',
+                    coefficient: String(type?.coefficient || form.coefficient || 1)
+                  });
+                }} required>
                   <option value="">Choisir</option>
                   {cycleTypes.map((type) => (
                     <option key={type.id} value={type.id}>
@@ -233,6 +244,10 @@ function TeacherEvaluations() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="form-field">
+                <label>Coefficient</label>
+                <input type="number" min="0.5" step="0.5" value={form.coefficient} onChange={(event) => setForm({ ...form, coefficient: event.target.value })} />
               </div>
               <div className="form-field">
                 <label>Titre</label>
